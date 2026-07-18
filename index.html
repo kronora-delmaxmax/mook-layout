@@ -47,6 +47,15 @@
   .swatches{display:flex;gap:6px}
   .sw{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
   .sw.on{border-color:var(--ink)}
+  .field{margin-bottom:8px}
+  .field input,.field select{
+    width:100%;padding:7px 9px;font-size:12px;border:1px solid #C9C2B4;border-radius:3px;
+    background:#FBF9F3;font-family:inherit;
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+  .ai-status{font-size:11px;line-height:1.7;color:#8A8271;min-height:18px}
+  .ai-status.err{color:#C0392B}
+  .ai-status.ok{color:#5C7A4E}
   .tip{font-size:11px;line-height:1.8;color:#8A8271;border-top:1px dashed #C9C2B4;padding-top:12px}
 
   /* ===== 画布区 ===== */
@@ -163,8 +172,20 @@
   </div>
 
   <div class="group">
-    <label>AI 文字（原型为预设句库）</label>
-    <button class="btn btn-primary" id="btnAI">✦ 重新生成文案</button>
+    <label>AI 看图写图注 CAPTION AI</label>
+    <div class="field">
+      <select id="aiPreset">
+        <option value="moonshot">Kimi（Moonshot 视觉版）</option>
+        <option value="bailian">通义千问 VL（阿里百炼）</option>
+        <option value="siliconflow">硅基流动（Qwen2.5-VL）</option>
+        <option value="custom">自定义 OpenAI 兼容接口</option>
+      </select>
+    </div>
+    <div class="field"><input id="aiBase" placeholder="Base URL"></div>
+    <div class="field"><input id="aiModel" placeholder="模型名"></div>
+    <div class="field"><input id="aiKey" type="password" placeholder="API Key（仅存浏览器本地）"></div>
+    <button class="btn btn-primary" id="btnAI">✦ AI 识别照片生成文案</button>
+    <div class="ai-status" id="aiStatus">未配置 Key 时，点击将使用内置句库演示</div>
   </div>
 
   <div class="group">
@@ -189,9 +210,10 @@
 
   <div class="tip">
     操作提示：<br>
-    · 点击照片框可替换成你的照片<br>
+    · 点击照片框放入你的照片<br>
+    · 填入 API Key 后，AI 会真的"看"照片写图注<br>
     · 所有文字可直接点选编辑<br>
-    · 本页为版式验证原型，正式版将由 AI 识别照片内容自动生成图注
+    · Key 仅保存在你自己浏览器的 localStorage
   </div>
 </aside>
 
@@ -336,7 +358,98 @@
     applyStroke();
   });
 
-  /* ---- 模拟 AI 文案 ---- */
+  /* ---- AI 配置 ---- */
+  const PRESETS = {
+    moonshot:    { base:'https://api.moonshot.cn/v1',                          model:'moonshot-v1-8k-vision-preview' },
+    bailian:     { base:'https://dashscope.aliyuncs.com/compatible-mode/v1',   model:'qwen-vl-max' },
+    siliconflow: { base:'https://api.siliconflow.cn/v1',                       model:'Qwen/Qwen2.5-VL-72B-Instruct' },
+    custom:      { base:'', model:'' }
+  };
+  const $ = id => document.getElementById(id);
+  const aiPreset=$('aiPreset'), aiBase=$('aiBase'), aiModel=$('aiModel'), aiKey=$('aiKey'), aiStatus=$('aiStatus');
+
+  // 恢复本地保存的配置
+  try{
+    const saved = JSON.parse(localStorage.getItem('mook-ai')||'{}');
+    if(saved.preset) aiPreset.value = saved.preset;
+    if(saved.key) aiKey.value = saved.key;
+  }catch(e){}
+  function syncFields(){
+    const p = PRESETS[aiPreset.value];
+    aiBase.value = p.base; aiModel.value = p.model;
+    aiBase.readOnly = aiModel.readOnly = (aiPreset.value!=='custom');
+    saveCfg();
+  }
+  function saveCfg(){
+    localStorage.setItem('mook-ai', JSON.stringify({preset:aiPreset.value, key:aiKey.value}));
+  }
+  aiPreset.addEventListener('change', syncFields);
+  aiKey.addEventListener('input', saveCfg);
+  syncFields();
+
+  function setStatus(msg, cls){ aiStatus.textContent = msg; aiStatus.className = 'ai-status ' + (cls||''); }
+
+  /* 把当前版式第一张已填照片压缩为 dataURL（≤1024px，控制请求体积） */
+  function getMainImage(){
+    const imgs = page.querySelectorAll('.photo.filled img');
+    for(const img of imgs){ if(img.src) return img; }
+    return null;
+  }
+  function downscale(img){
+    return new Promise(resolve=>{
+      const el = new Image();
+      el.onload = ()=>{
+        const max = 1024, r = Math.min(1, max/Math.max(el.width, el.height));
+        const cv = document.createElement('canvas');
+        cv.width = el.width*r; cv.height = el.height*r;
+        cv.getContext('2d').drawImage(el,0,0,cv.width,cv.height);
+        resolve(cv.toDataURL('image/jpeg', .82));
+      };
+      el.src = img.src;
+    });
+  }
+
+  /* ---- 真实 AI 调用 ---- */
+  async function callAI(){
+    const key = aiKey.value.trim();
+    if(!key){ setStatus('未配置 Key，使用内置句库演示',''); fallbackPool(); return; }
+    const imgEl = getMainImage();
+    if(!imgEl){ setStatus('请先点击照片框放入至少一张照片','err'); return; }
+
+    setStatus('AI 正在阅读照片…');
+    const btn = $('btnAI'); btn.disabled = true;
+    try{
+      const image = await downscale(imgEl);
+      const resp = await fetch('/api/caption', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ baseURL:aiBase.value.trim(), apiKey:key, model:aiModel.value.trim(), image })
+      });
+      const data = await resp.json();
+      if(!resp.ok || !data.ok) throw new Error(data.error || '请求失败');
+      fillAI(data.result);
+      setStatus('已生成！文字可继续手动编辑','ok');
+    }catch(e){
+      setStatus('调用失败：' + e.message, 'err');
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  function fillAI(r){
+    const t = r.title || '', s = r.subtitle || '', en = r.english || '';
+    const caps = Array.isArray(r.captions) ? r.captions : [];
+    setText('title', t.replace(/^.*[｜|]/,''));  // 竖排标题只保留主题部分
+    setText('tag', t.includes('｜') ? t.split('｜')[0] : '特辑');
+    setText('sub', s);
+    setText('titleB', t.replace(/｜/g,'·'));
+    setText('subB', en);
+    setText('titleC', t.replace(/^.*[｜|]/,'').slice(0,6));
+    setText('subC', en.toUpperCase());
+    caps.slice(0,4).forEach((c,i)=> setText('c'+i, c));
+    setText('foot', '—— ' + s + ' ——');
+  }
+
+  /* ---- 内置句库（未配 Key 时的兜底演示） ---- */
   const pools = {
     title:['七日町的早餐散步','巷口面包店的七点整','吐司与咖啡的晨光','朝食散步地图','一个人的早餐仪式'],
     sub:['清晨七点的香气，是这座城市醒来的信号。','从巷口面包店开始的一日之计。','把早餐吃好，是对清晨最基本的尊重。','第一炉面包出炉时，整条街都醒了。'],
@@ -356,7 +469,7 @@
     ]
   };
   let aiIdx = 0;
-  document.getElementById('btnAI').addEventListener('click', ()=>{
+  function fallbackPool(){
     aiIdx++;
     const t = pools.title[aiIdx % pools.title.length];
     const s = pools.sub[aiIdx % pools.sub.length];
@@ -366,7 +479,8 @@
     setText('titleB', t.replace('的','、')); setText('subB','Breakfast Walk — 7:00 AM');
     setText('titleC','朝食图鉴');
     for(let i=0;i<4;i++) setText('c'+i, c[i]);
-  });
+  }
+  document.getElementById('btnAI').addEventListener('click', callAI);
   function setText(k, v){
     document.querySelectorAll(`[data-k="${k}"]`).forEach(el=>el.textContent=v);
   }
