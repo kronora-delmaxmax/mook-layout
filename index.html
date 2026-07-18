@@ -175,7 +175,7 @@
 <body>
 
 <aside class="panel">
-  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01</span></div>
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.3 免Key识图版</span></div>
 
   <div class="group">
     <label>版式 VARIANT</label>
@@ -190,6 +190,7 @@
     <label>AI 看图写图注 CAPTION AI</label>
     <div class="field">
       <select id="aiPreset">
+        <option value="builtin">免 Key 体验（本地识图，推荐先试）</option>
         <option value="moonshot">Kimi（Moonshot 视觉版）</option>
         <option value="bailian">通义千问 VL（阿里百炼）</option>
         <option value="siliconflow">硅基流动（Qwen2.5-VL）</option>
@@ -393,6 +394,7 @@
 
   /* ---- AI 配置 ---- */
   const PRESETS = {
+    builtin:     { base:'（无需填写）', model:'（浏览器本地视觉模型）' },
     moonshot:    { base:'https://api.moonshot.cn/v1',                          model:'moonshot-v1-8k-vision-preview' },
     bailian:     { base:'https://dashscope.aliyuncs.com/compatible-mode/v1',   model:'qwen-vl-max' },
     siliconflow: { base:'https://api.siliconflow.cn/v1',                       model:'Qwen/Qwen2.5-VL-72B-Instruct' },
@@ -409,8 +411,11 @@
   }catch(e){}
   function syncFields(){
     const p = PRESETS[aiPreset.value];
+    const isBuiltin = aiPreset.value==='builtin';
     aiBase.value = p.base; aiModel.value = p.model;
     aiBase.readOnly = aiModel.readOnly = (aiPreset.value!=='custom');
+    aiBase.disabled = aiModel.disabled = aiKey.disabled = isBuiltin;
+    setStatus(isBuiltin ? '免 Key 模式：放张照片，点下方按钮即可识图' : '已切换为自带 Key 模式');
     saveCfg();
   }
   function saveCfg(){
@@ -442,27 +447,53 @@
     });
   }
 
+  /* ---- 免 Key：浏览器本地视觉模型（transformers.js + MobileNetV4，仅3.9MB） ---- */
+  let captioner = null;
+  async function localCaption(imgEl){
+    if(!captioner){
+      setStatus('首次加载本地视觉模型（仅约4MB）…');
+      const T = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3');
+      T.env.localModelPath = '/models/';      // 模型由本站提供，免跨域、免翻墙
+      T.env.allowLocalModels = true;
+      T.env.allowRemoteModels = false;
+      captioner = await T.pipeline('image-classification', 'onnx-community/mobilenetv4_conv_small.e2400_r224_in1k');
+    }
+    setStatus('本地模型正在识图…');
+    const small = await downscale(imgEl);
+    const out = await captioner(small, { topk: 5 });
+    if(!out || !out.length) return '';
+    const tags = out.map(o => o.label.split(',')[0] + '（' + Math.round(o.score*100) + '%）').join('、');
+    return '图像分类模型识别的画面元素：' + tags;
+  }
+
   /* ---- 真实 AI 调用 ---- */
   async function callAI(){
-    const key = aiKey.value.trim();
-    if(!key){ setStatus('未配置 Key，使用内置句库演示',''); fallbackPool(); return; }
     const imgEl = getMainImage();
     if(!imgEl){ setStatus('请先点击照片框放入至少一张照片','err'); return; }
-
-    setStatus('AI 正在阅读照片…');
     const btn = $('btnAI'); btn.disabled = true;
     try{
-      const image = await downscale(imgEl);
+      let payload;
+      if(aiPreset.value === 'builtin'){
+        const desc = await localCaption(imgEl);
+        if(!desc) throw new Error('本地识图无结果');
+        setStatus('识图完成：' + desc.slice(0,40) + '… 正在润色文案…');
+        payload = { description: desc };
+      }else{
+        const key = aiKey.value.trim();
+        if(!key){ setStatus('未配置 Key，使用内置句库演示',''); fallbackPool(); btn.disabled=false; return; }
+        setStatus('AI 正在阅读照片…');
+        payload = { baseURL:aiBase.value.trim(), apiKey:key, model:aiModel.value.trim(), image: await downscale(imgEl) };
+      }
       const resp = await fetch('/api/caption', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ baseURL:aiBase.value.trim(), apiKey:key, model:aiModel.value.trim(), image })
+        body: JSON.stringify(payload)
       });
       const data = await resp.json();
       if(!resp.ok || !data.ok) throw new Error(data.error || '请求失败');
       fillAI(data.result);
       setStatus('已生成！文字可继续手动编辑','ok');
     }catch(e){
-      setStatus('调用失败：' + e.message, 'err');
+      setStatus('调用失败：' + e.message + '（可重试或切换句库演示）', 'err');
     }finally{
       btn.disabled = false;
     }

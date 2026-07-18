@@ -22,7 +22,42 @@ async function handleCaption(req, res) {
   req.on('data', c => { body += c; if (body.length > 15e6) req.destroy(); });
   req.on('end', async () => {
     try {
-      const { baseURL, apiKey, model, image } = JSON.parse(body);
+      const { baseURL, apiKey, model, image, description } = JSON.parse(body);
+
+      // 路径 A：免 Key 模式 —— 前端已在浏览器本地完成识图，这里用公益文本接口把英文描述润色成杂志文案
+      if (description) {
+        const ask = () => fetch('https://text.pollinations.ai/openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'openai',
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT + '\n重要：直接输出 JSON 本体，不要用 markdown 代码块包裹，不要输出思考过程。' },
+              { role: 'user', content: '这是一段图像识别模型对照片的描述："' + description + '"。请据此撰写杂志文案，细节可在此基础上合理发挥。' }
+            ],
+            max_tokens: 900
+          })
+        });
+        let lastErr = '';
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const up = await ask();
+            if (!up.ok) { lastErr = '润色接口异常（' + up.status + '）'; continue; }
+            const d = await up.json();
+            const text = d.choices?.[0]?.message?.content || '';
+            const m = text.match(/\{[\s\S]*\}/);
+            if (m) {
+              try { return json(res, 200, { ok: true, result: JSON.parse(m[0]) }); }
+              catch (e) { lastErr = 'JSON 解析失败'; }
+            } else {
+              lastErr = '模型未返回有效 JSON';
+            }
+          } catch (e) { lastErr = e.message; }
+        }
+        return json(res, 502, { error: lastErr + '，请重试' });
+      }
+
+      // 路径 B：自带 Key —— 直连多模态视觉模型
       if (!baseURL || !apiKey || !model || !image) {
         return json(res, 400, { error: '缺少必要参数（baseURL / apiKey / model / image）' });
       }
