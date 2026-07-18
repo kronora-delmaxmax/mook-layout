@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>刊 · 朝食特辑 — 杂志排版原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Special+Elite&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --paper:#FAF7F0; --ink:#2B2B2B; --accent:#E85D3D; --hair:#C9C2B4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:'Noto Serif SC',"Songti SC",serif;background:#E9E4D8;color:var(--ink);
+    display:flex;min-height:100vh;
+  }
+
+  /* ===== 左侧工具栏 ===== */
+  .panel{
+    width:272px;flex-shrink:0;background:#F3EFE6;border-right:1px solid #D8D1C0;
+    padding:22px 20px;display:flex;flex-direction:column;gap:18px;
+    position:sticky;top:0;height:100vh;overflow-y:auto;
+  }
+  .brand{font-size:20px;font-weight:900;letter-spacing:2px}
+  .brand span{display:block;font-family:'Playfair Display',serif;font-weight:500;
+    font-size:11px;letter-spacing:3px;color:#8A8271;margin-top:4px}
+  .group label{display:block;font-size:12px;font-weight:600;letter-spacing:1px;
+    color:#8A8271;margin-bottom:8px}
+  .seg{display:flex;gap:6px}
+  .seg button{
+    flex:1;padding:8px 4px;font-size:12px;border:1px solid #C9C2B4;background:#FBF9F3;
+    cursor:pointer;font-family:inherit;border-radius:3px;transition:.15s;
+  }
+  .seg button.on{background:var(--ink);color:#FAF7F0;border-color:var(--ink)}
+  .btn{
+    width:100%;padding:11px;font-size:13px;letter-spacing:1px;border:none;cursor:pointer;
+    border-radius:3px;font-family:inherit;transition:.15s;
+  }
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#D14E31}
+  .btn-ghost{background:transparent;border:1px solid #C9C2B4;color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--ink)}
+  .stroke-row{display:flex;align-items:center;gap:10px}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  .swatches{display:flex;gap:6px}
+  .sw{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+  .sw.on{border-color:var(--ink)}
+  .tip{font-size:11px;line-height:1.8;color:#8A8271;border-top:1px dashed #C9C2B4;padding-top:12px}
+
+  /* ===== 画布区 ===== */
+  .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:36px;overflow:auto}
+  .page{
+    width:600px;height:800px;background:var(--paper);position:relative;flex-shrink:0;
+    box-shadow:0 20px 60px rgba(60,50,30,.25);overflow:hidden;
+  }
+  [contenteditable]{outline:none;cursor:text}
+  [contenteditable]:focus{background:rgba(232,93,61,.07);border-radius:2px}
+
+  /* 刊号条 / 页脚（共用） */
+  .masthead{
+    position:absolute;top:0;left:0;right:0;height:56px;padding:0 34px;
+    display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:8px;
+    border-bottom:1.5px solid var(--ink);font-size:10px;letter-spacing:2px;z-index:5;
+    background:var(--paper);
+  }
+  .masthead .vol{font-family:'Special Elite',monospace;font-size:11px}
+  .masthead .issue{font-weight:900;letter-spacing:4px}
+  .masthead .en{font-family:'Playfair Display',serif;font-style:italic;letter-spacing:1px;color:#8A8271}
+  .folio{
+    position:absolute;bottom:14px;left:0;right:0;text-align:center;
+    font-family:'Playfair Display',serif;font-size:11px;letter-spacing:3px;color:#8A8271;z-index:5;
+  }
+
+  .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4}
+  .photo img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo .ph{
+    position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;
+    align-items:center;justify-content:center;color:#A79E8A;font-size:12px;letter-spacing:2px;
+  }
+  .photo .ph b{font-size:26px;font-weight:400}
+  .photo.filled .ph{display:none}
+
+  /* ===== 版式 A：单图版 ===== */
+  .vA .hero{position:absolute;top:56px;left:0;right:0;height:56%}
+  .vA .title-wrap{
+    position:absolute;top:60px;right:30px;z-index:6;display:flex;gap:14px;align-items:flex-start;
+  }
+  .vA .title-v{
+    writing-mode:vertical-rl;font-size:44px;font-weight:900;letter-spacing:6px;line-height:1.1;
+    background:var(--paper);padding:14px 8px;box-shadow:4px 4px 0 rgba(43,43,43,.12);
+  }
+  .vA .title-tag{
+    writing-mode:vertical-rl;font-size:11px;letter-spacing:3px;background:var(--accent);
+    color:#fff;padding:10px 4px;
+  }
+  .vA .sub{
+    position:absolute;top:calc(56% + 70px);left:34px;right:34px;
+    display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--hair);padding-bottom:10px;
+  }
+  .vA .sub .no{font-family:'Playfair Display',serif;font-size:26px;color:var(--accent);font-weight:700}
+  .vA .sub .t{font-size:15px;font-weight:600;letter-spacing:2px}
+  .vA .caps{
+    position:absolute;top:calc(56% + 128px);left:34px;right:34px;bottom:44px;
+    column-count:2;column-gap:28px;column-rule:1px solid var(--hair);
+  }
+  .cap{font-size:11px;line-height:1.9;margin-bottom:10px;break-inside:avoid;text-align:justify}
+  .cap b{color:var(--accent);font-family:'Playfair Display',serif;margin-right:6px}
+
+  /* ===== 版式 B：双图版 ===== */
+  .vB .head{position:absolute;top:82px;left:34px;right:34px;z-index:6}
+  .vB .title-h{font-size:34px;font-weight:900;letter-spacing:3px;line-height:1.25}
+  .vB .title-en{
+    font-family:'Playfair Display',serif;font-style:italic;font-size:13px;color:#8A8271;
+    letter-spacing:2px;margin-top:6px;
+  }
+  .vB .hero{position:absolute;top:190px;left:34px;right:34px;height:37%}
+  .vB .duo{position:absolute;top:calc(190px + 37% + 22px);left:34px;right:34px;height:23%;
+    display:flex;gap:22px}
+  .vB .duo .photo{flex:1}
+  .framed{background:#fff;padding:9px 9px 9px;box-shadow:0 6px 18px rgba(60,50,30,.18)}
+  .vB .caps{position:absolute;left:34px;right:34px;bottom:42px;display:flex;gap:24px}
+  .vB .caps .cap{flex:1;margin:0}
+
+  /* ===== 版式 C：图鉴版 ===== */
+  .vC .head{position:absolute;top:80px;left:34px;right:34px;text-align:center;z-index:6}
+  .vC .title-h{font-size:32px;font-weight:900;letter-spacing:6px}
+  .vC .title-en{font-family:'Playfair Display',serif;font-style:italic;font-size:12px;
+    color:#8A8271;letter-spacing:3px;margin-top:6px}
+  .vC .rule{width:60px;height:3px;background:var(--accent);margin:12px auto 0}
+  .vC .grid{
+    position:absolute;top:190px;left:40px;right:40px;bottom:110px;
+    display:grid;grid-template-columns:1fr 1fr;gap:26px;
+  }
+  .vC .cell{display:flex;flex-direction:column;gap:8px}
+  .vC .cell .photo{flex:1;background:#fff;padding:8px;box-shadow:0 5px 14px rgba(60,50,30,.14)}
+  .vC .cell .photo img{height:100%}
+  .vC .cell .num{
+    font-family:'Playfair Display',serif;font-size:12px;font-weight:700;color:var(--accent);
+    letter-spacing:1px;
+  }
+  .vC .cell .num::after{content:"";display:block;width:18px;height:1px;background:var(--hair);margin:4px 0}
+  .vC .cell .cap{font-size:10.5px;line-height:1.7;margin:0}
+  .vC .foot-note{
+    position:absolute;bottom:44px;left:34px;right:34px;text-align:center;
+    font-size:11px;letter-spacing:2px;color:#6E6656;
+  }
+</style>
+</head>
+<body>
+
+<aside class="panel">
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01</span></div>
+
+  <div class="group">
+    <label>版式 VARIANT</label>
+    <div class="seg" id="segVariant">
+      <button data-v="vA" class="on">单图版</button>
+      <button data-v="vB">双图版</button>
+      <button data-v="vC">图鉴版</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>AI 文字（原型为预设句库）</label>
+    <button class="btn btn-primary" id="btnAI">✦ 重新生成文案</button>
+  </div>
+
+  <div class="group">
+    <label>照片描边 STROKE</label>
+    <div class="stroke-row">
+      <input type="range" id="strokeW" min="0" max="16" value="0">
+      <span id="strokeVal" style="font-size:11px;width:34px">0px</span>
+    </div>
+    <div class="swatches" style="margin-top:10px" id="swatches">
+      <div class="sw on" data-c="#FFFFFF" style="background:#fff;border-color:#ddd"></div>
+      <div class="sw" data-c="#2B2B2B" style="background:#2B2B2B"></div>
+      <div class="sw" data-c="#E85D3D" style="background:#E85D3D"></div>
+      <div class="sw" data-c="#2E4A6B" style="background:#2E4A6B"></div>
+      <div class="sw" data-c="#6B7F5E" style="background:#6B7F5E"></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>导出 EXPORT</label>
+    <button class="btn btn-ghost" id="btnExport">↓ 导出 PNG（小红书 3:4）</button>
+  </div>
+
+  <div class="tip">
+    操作提示：<br>
+    · 点击照片框可替换成你的照片<br>
+    · 所有文字可直接点选编辑<br>
+    · 本页为版式验证原型，正式版将由 AI 识别照片内容自动生成图注
+  </div>
+</aside>
+
+<main class="stage">
+  <div class="page vA" id="page">
+
+    <div class="masthead">
+      <span class="vol">VOL.01</span>
+      <span class="issue">朝食特輯</span>
+      <span class="en">Morning Table Journal</span>
+    </div>
+
+    <!-- 版式 A -->
+    <div class="lay layA">
+      <div class="photo hero" data-slot="0">
+        <div class="ph"><b>＋</b>点击放入主图</div><img alt="">
+      </div>
+      <div class="title-wrap">
+        <div class="title-v" contenteditable data-k="title">七日町的早餐散步</div>
+        <div class="title-tag" contenteditable data-k="tag">朝食特辑</div>
+      </div>
+      <div class="sub">
+        <span class="no">01</span>
+        <span class="t" contenteditable data-k="sub">清晨七点的香气，是这座城市醒来的信号。</span>
+      </div>
+      <div class="caps">
+        <p class="cap"><b>◎</b><span contenteditable data-k="c0">厚切吐司配半熟蛋，炭火烘焙的焦香从巷口飘出。店主说，每天的第一炉只烤四十片。</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c1">手冲咖啡选了中深焙的曼特宁，苦味干净，尾韵带一点黑巧克力的甜。</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c2">靠窗的位置能看见整条街道醒来：送报人、遛狗的老人、匆匆的上班族。</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c3">早餐的意义不在于丰盛，而在于给一天一个不慌不忙的开头。</span></p>
+      </div>
+    </div>
+
+    <!-- 版式 B -->
+    <div class="lay layB" style="display:none">
+      <div class="head">
+        <div class="title-h" contenteditable data-k="titleB">吐司、咖啡，与晨光</div>
+        <div class="title-en" contenteditable data-k="subB">Breakfast Walk in the Old Town — 7:00 AM</div>
+      </div>
+      <div class="photo hero framed" data-slot="0">
+        <div class="ph"><b>＋</b>主图</div><img alt="">
+      </div>
+      <div class="duo">
+        <div class="photo framed" data-slot="1"><div class="ph"><b>＋</b>小图 1</div><img alt=""></div>
+        <div class="photo framed" data-slot="2"><div class="ph"><b>＋</b>小图 2</div><img alt=""></div>
+      </div>
+      <div class="caps">
+        <p class="cap"><span contenteditable data-k="c0">厚切吐司配半熟蛋。炭火烘焙的焦香，是这条街清晨的信号。</span></p>
+        <p class="cap"><span contenteditable data-k="c1">中深焙曼特宁手冲，苦味干净。早餐的意义，是给一天一个从容的开头。</span></p>
+      </div>
+    </div>
+
+    <!-- 版式 C -->
+    <div class="lay layC" style="display:none">
+      <div class="head">
+        <div class="title-h" contenteditable data-k="titleC">朝食图鉴</div>
+        <div class="title-en" contenteditable data-k="subC">MORNING TABLE CATALOGUE</div>
+        <div class="rule"></div>
+      </div>
+      <div class="grid">
+        <div class="cell">
+          <div class="photo" data-slot="0"><div class="ph"><b>＋</b>图 1</div><img alt=""></div>
+          <div class="num">No.01</div>
+          <p class="cap" contenteditable data-k="c0">厚切吐司，炭火烘焙，每日限量四十片。</p>
+        </div>
+        <div class="cell">
+          <div class="photo" data-slot="1"><div class="ph"><b>＋</b>图 2</div><img alt=""></div>
+          <div class="num">No.02</div>
+          <p class="cap" contenteditable data-k="c1">手冲曼特宁，中深焙，尾韵有黑巧的甜。</p>
+        </div>
+        <div class="cell">
+          <div class="photo" data-slot="2"><div class="ph"><b>＋</b>图 3</div><img alt=""></div>
+          <div class="num">No.03</div>
+          <p class="cap" contenteditable data-k="c2">半熟蛋配海盐，蛋白凝固、蛋黄流心。</p>
+        </div>
+        <div class="cell">
+          <div class="photo" data-slot="3"><div class="ph"><b>＋</b>图 4</div><img alt=""></div>
+          <div class="num">No.04</div>
+          <p class="cap" contenteditable data-k="c3">复古搪瓷杯，店主的私藏餐具之一。</p>
+        </div>
+      </div>
+      <div class="foot-note" contenteditable data-k="foot">—— 朝食的意义，是给一天一个不慌不忙的开头 ——</div>
+    </div>
+
+    <div class="folio">— 01 —</div>
+  </div>
+</main>
+
+<input type="file" id="fileIn" accept="image/*" style="display:none">
+
+<script>
+(function(){
+  const page = document.getElementById('page');
+  const fileIn = document.getElementById('fileIn');
+  let activeSlot = null, strokeColor = '#FFFFFF';
+
+  /* ---- 版式切换 ---- */
+  const lays = { vA:'.layA', vB:'.layB', vC:'.layC' };
+  document.getElementById('segVariant').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#segVariant button').forEach(x=>x.classList.toggle('on',x===b));
+    const v = b.dataset.v;
+    page.className = 'page ' + v;
+    Object.entries(lays).forEach(([k,sel])=>{
+      page.querySelector(sel).style.display = (k===v)?'block':'none';
+    });
+  });
+
+  /* ---- 照片上传 ---- */
+  document.querySelectorAll('.photo').forEach(p=>{
+    p.addEventListener('click', ()=>{ activeSlot = p; fileIn.click(); });
+  });
+  fileIn.addEventListener('change', ()=>{
+    const f = fileIn.files[0]; if(!f || !activeSlot) return;
+    const r = new FileReader();
+    r.onload = e=>{
+      const img = activeSlot.querySelector('img');
+      img.src = e.target.result;
+      activeSlot.classList.add('filled');
+      applyStroke();
+    };
+    r.readAsDataURL(f);
+    fileIn.value = '';
+  });
+
+  /* ---- 描边 ---- */
+  const strokeW = document.getElementById('strokeW');
+  const strokeVal = document.getElementById('strokeVal');
+  function applyStroke(){
+    const w = strokeW.value;
+    strokeVal.textContent = w + 'px';
+    document.querySelectorAll('.photo img').forEach(img=>{
+      img.style.border = (+w>0) ? `${w}px solid ${strokeColor}` : 'none';
+      img.style.boxSizing = 'border-box';
+    });
+  }
+  strokeW.addEventListener('input', applyStroke);
+  document.getElementById('swatches').addEventListener('click', e=>{
+    const s = e.target.closest('.sw'); if(!s) return;
+    document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on',x===s));
+    strokeColor = s.dataset.c;
+    applyStroke();
+  });
+
+  /* ---- 模拟 AI 文案 ---- */
+  const pools = {
+    title:['七日町的早餐散步','巷口面包店的七点整','吐司与咖啡的晨光','朝食散步地图','一个人的早餐仪式'],
+    sub:['清晨七点的香气，是这座城市醒来的信号。','从巷口面包店开始的一日之计。','把早餐吃好，是对清晨最基本的尊重。','第一炉面包出炉时，整条街都醒了。'],
+    caps:[
+      ['厚切吐司配半熟蛋，炭火烘焙的焦香从巷口飘出。店主说，每天的第一炉只烤四十片。',
+       '手冲咖啡选了中深焙的曼特宁，苦味干净，尾韵带一点黑巧克力的甜。',
+       '靠窗的位置能看见整条街道醒来：送报人、遛狗的老人、匆匆的上班族。',
+       '早餐的意义不在于丰盛，而在于给一天一个不慌不忙的开头。'],
+      ['刚出炉的司康还冒着热气，掰开时黄油的香气先一步到达。',
+       '冰滴咖啡需要八小时萃取，好味道从来不赶时间。',
+       '木质桌椅被晨光晒得温热，这是店里最受欢迎的角落。',
+       '认真吃早餐的人，日子总过得不会太差。'],
+      ['法式吐司浸足蛋奶液，煎到两面金黄，淋上枫糖浆是犯规级的美味。',
+       '今日例汤是南瓜浓汤，季节限定的温柔。',
+       '邻座的老人每天点一样的套餐，三十年如一日。',
+       '所谓幸福，大概就是烤面包机跳起来的那一声。']
+    ]
+  };
+  let aiIdx = 0;
+  document.getElementById('btnAI').addEventListener('click', ()=>{
+    aiIdx++;
+    const t = pools.title[aiIdx % pools.title.length];
+    const s = pools.sub[aiIdx % pools.sub.length];
+    const c = pools.caps[aiIdx % pools.caps.length];
+    setText('title', t); setText('tag','朝食特辑');
+    setText('sub', s);
+    setText('titleB', t.replace('的','、')); setText('subB','Breakfast Walk — 7:00 AM');
+    setText('titleC','朝食图鉴');
+    for(let i=0;i<4;i++) setText('c'+i, c[i]);
+  });
+  function setText(k, v){
+    document.querySelectorAll(`[data-k="${k}"]`).forEach(el=>el.textContent=v);
+  }
+
+  /* ---- 导出 ---- */
+  document.getElementById('btnExport').addEventListener('click', ()=>{
+    const btn = document.getElementById('btnExport');
+    btn.textContent = '生成中…';
+    html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
+      const a = document.createElement('a');
+      a.download = '朝食特辑_VOL01.png';
+      a.href = cv.toDataURL('image/png');
+      a.click();
+      btn.textContent = '↓ 导出 PNG（小红书 3:4）';
+    });
+  });
+})();
+</script>
+</body>
+</html>
