@@ -175,7 +175,7 @@
 <body>
 
 <aside class="panel">
-  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.3 免Key识图版</span></div>
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.4</span></div>
 
   <div class="group">
     <label>版式 VARIANT</label>
@@ -403,11 +403,11 @@
   const $ = id => document.getElementById(id);
   const aiPreset=$('aiPreset'), aiBase=$('aiBase'), aiModel=$('aiModel'), aiKey=$('aiKey'), aiStatus=$('aiStatus');
 
-  // 恢复本地保存的配置
+  // 恢复本地保存的配置（默认免Key档；仅当存了Key才恢复对应服务商档位）
   try{
     const saved = JSON.parse(localStorage.getItem('mook-ai')||'{}');
-    if(saved.preset) aiPreset.value = saved.preset;
     if(saved.key) aiKey.value = saved.key;
+    if(saved.preset && (saved.preset==='builtin' || saved.key)) aiPreset.value = saved.preset;
   }catch(e){}
   function syncFields(){
     const p = PRESETS[aiPreset.value];
@@ -480,9 +480,16 @@
         payload = { description: desc };
       }else{
         const key = aiKey.value.trim();
-        if(!key){ setStatus('未配置 Key，使用内置句库演示',''); fallbackPool(); btn.disabled=false; return; }
-        setStatus('AI 正在阅读照片…');
-        payload = { baseURL:aiBase.value.trim(), apiKey:key, model:aiModel.value.trim(), image: await downscale(imgEl) };
+        if(!key){
+          // 没填 Key 时自动回落到免Key本地识图，而不是句库假数据
+          setStatus('未填 Key，自动使用免 Key 本地识图…');
+          const desc = await localCaption(imgEl);
+          if(!desc) throw new Error('本地识图无结果');
+          payload = { description: desc };
+        }else{
+          setStatus('AI 正在阅读照片…');
+          payload = { baseURL:aiBase.value.trim(), apiKey:key, model:aiModel.value.trim(), image: await downscale(imgEl) };
+        }
       }
       const resp = await fetch('/api/caption', {
         method:'POST', headers:{'Content-Type':'application/json'},
