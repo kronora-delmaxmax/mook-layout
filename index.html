@@ -175,7 +175,7 @@
 <body>
 
 <aside class="panel">
-  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.4</span></div>
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.5</span></div>
 
   <div class="group">
     <label>版式 VARIANT</label>
@@ -447,6 +447,45 @@
     });
   }
 
+  /* ---- 杂志编辑 Prompt（与后端版一致） ---- */
+  const SYSTEM_PROMPT = `你是一本日系生活方式杂志（mook）的资深编辑，风格参考 POPEYE 的卷首特辑：克制、具体、有现场感，绝不使用夸张的营销词汇。
+用户会给你一段对生活方式照片（早餐、咖啡、街景、穿搭等）的描述，请为它撰写杂志文案，严格输出 JSON，不要输出任何其他内容：
+{
+  "title": "大标题，8~12字，带栏目感，可用「｜」分隔栏目名与主题",
+  "subtitle": "副标题，一句有画面感的话，20字以内",
+  "english": "一句简短的英文小标题，斜体感，如 Breakfast Walk in the Old Town",
+  "captions": ["图注一", "图注二", "图注三", "图注四"]
+}
+图注要求：每条20~40字；前两条具体描写照片中的实物（名称、质感、细节），后两条可以写氛围与感受；语言冷静细腻，像编辑在实物旁做的笔记；不要用emoji。
+重要：直接输出 JSON 本体，不要用 markdown 代码块包裹，不要输出思考过程。`;
+
+  /* ---- 免费文本接口润色（CORS 开放，浏览器直连，自动重试3次） ---- */
+  async function polishText(description){
+    let lastErr = '';
+    for(let i=0;i<3;i++){
+      try{
+        const resp = await fetch('https://text.pollinations.ai/openai', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            model:'openai',
+            messages:[
+              { role:'system', content:SYSTEM_PROMPT },
+              { role:'user', content:'这是一段图像识别模型对照片的描述："'+description+'"。请据此撰写杂志文案，细节可在此基础上合理发挥。' }
+            ],
+            max_tokens:900
+          })
+        });
+        if(!resp.ok){ lastErr = '润色接口繁忙（'+resp.status+'）'; continue; }
+        const d = await resp.json();
+        const text = d.choices?.[0]?.message?.content || '';
+        const m = text.match(/\{[\s\S]*\}/);
+        if(m){ try{ return JSON.parse(m[0]); }catch(e){ lastErr='JSON 解析失败'; } }
+        else lastErr = '模型未返回有效 JSON';
+      }catch(e){ lastErr = e.message; }
+    }
+    throw new Error(lastErr + '，请重试');
+  }
+
   /* ---- 免 Key：浏览器本地视觉模型（transformers.js + MobileNetV4，仅3.9MB） ---- */
   let captioner = null;
   async function localCaption(imgEl){
@@ -461,46 +500,88 @@
     setStatus('本地模型正在识图…');
     const small = await downscale(imgEl);
     const out = await captioner(small, { topk: 5 });
-    if(!out || !out.length) return '';
-    const tags = out.map(o => o.label.split(',')[0] + '（' + Math.round(o.score*100) + '%）').join('、');
-    return '图像分类模型识别的画面元素：' + tags;
+    if(!out || !out.length) return null;
+    const tags = out.map(o => o.label.split(',')[0].trim());
+    const desc = '图像分类模型识别的画面元素：' + out.map(o => o.label.split(',')[0] + '（' + Math.round(o.score*100) + '%）').join('、');
+    return { desc, tags };
   }
 
-  /* ---- 真实 AI 调用 ---- */
+  /* ---- 本地句式编织（云端繁忙时的兜底，离线可用） ---- */
+  const CN_MAP = { 'espresso':'浓缩咖啡','coffee':'咖啡','cup':'咖啡杯','mug':'马克杯','plate':'餐盘','bakery':'面包房','bread':'面包','bagel':'贝果','pretzel':'碱水结','chocolate':'巧克力','pizza':'披萨','sandwich':'三明治','hamburger':'汉堡','sushi':'寿司','ice cream':'冰淇淋','wine':'红酒','bottle':'玻璃瓶','book':'书','library':'书架','vase':'花瓶','flower':'花','bicycle':'自行车','car':'汽车','street':'街道','building':'建筑','bridge':'桥','dog':'小狗','cat':'猫','bird':'鸟','chair':'椅子','table':'桌子','lamp':'灯','sofa':'沙发','keyboard':'键盘','laptop':'笔记本电脑','camera':'相机','shoe':'鞋','sneaker':'球鞋','jacket':'外套','jean':'牛仔裤','sunglasses':'墨镜','hat':'帽子','bow tie':'领结','suit':'西装','dress':'连衣裙','skirt':'半裙','handbag':'手提包','backpack':'双肩包','watch':'手表','sunglass':'墨镜' };
+  const WEAVE = {
+    sub: ['清晨的光线刚刚好，一切都来得及。','不赶时间，是对这一天最基本的尊重。','日常即景，值得被认真排进一页里。','平凡物件，也有它的出场方式。'],
+    eng: ['Daily Notes in the City','A Slow Morning','Ordinary Things, Good Days','City Walk Journal'],
+    capA: ['{a}是今天的主角，质感在线，细节经得起放大。','先注意到的是{a}，安静，却很有存在感。'],
+    capB: ['旁边的{b}同样是加分项，搭配得恰到好处。','{b}在一旁作陪，画面因此完整了起来。'],
+    capC: ['光线落在物件上的角度刚好，随手一拍就是封面感。','这一刻的氛围很松弛，像杂志里的一页日常。'],
+    capD: ['记录下来，不为别的，就为留住这份刚刚好的心情。','所谓生活感，大概就是这些不值一提却好看的瞬间。']
+  };
+  const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  function weaveLocal(tags){
+    const cns = tags.map(t => CN_MAP[t.toLowerCase()]).filter(Boolean);
+    const a = cns[0] || '眼前之物', b = cns[1] || '背景细节';
+    const fill = s => s.replace(/\{a\}/g, a).replace(/\{b\}/g, b);
+    return {
+      title: a + '特辑｜日常即景',
+      subtitle: pick(WEAVE.sub),
+      english: pick(WEAVE.eng),
+      captions: [ fill(pick(WEAVE.capA)), fill(pick(WEAVE.capB)), pick(WEAVE.capC), pick(WEAVE.capD) ]
+    };
+  }
+
+  /* ---- 真实 AI 调用（纯前端，无需后端） ---- */
   async function callAI(){
     const imgEl = getMainImage();
     if(!imgEl){ setStatus('请先点击照片框放入至少一张照片','err'); return; }
     const btn = $('btnAI'); btn.disabled = true;
     try{
-      let payload;
-      if(aiPreset.value === 'builtin'){
-        const desc = await localCaption(imgEl);
-        if(!desc) throw new Error('本地识图无结果');
-        setStatus('识图完成：' + desc.slice(0,40) + '… 正在润色文案…');
-        payload = { description: desc };
-      }else{
-        const key = aiKey.value.trim();
-        if(!key){
-          // 没填 Key 时自动回落到免Key本地识图，而不是句库假数据
-          setStatus('未填 Key，自动使用免 Key 本地识图…');
-          const desc = await localCaption(imgEl);
-          if(!desc) throw new Error('本地识图无结果');
-          payload = { description: desc };
-        }else{
-          setStatus('AI 正在阅读照片…');
-          payload = { baseURL:aiBase.value.trim(), apiKey:key, model:aiModel.value.trim(), image: await downscale(imgEl) };
+      if(aiPreset.value === 'builtin' || !aiKey.value.trim()){
+        // 免 Key 路径：本地识图 → 浏览器直连润色（失败则本地句式兜底）
+        if(aiPreset.value !== 'builtin') setStatus('未填 Key，自动使用免 Key 本地识图…');
+        const cap = await localCaption(imgEl);
+        if(!cap) throw new Error('本地识图无结果');
+        setStatus('识图完成：' + cap.desc.slice(0,40) + '… 正在润色文案…');
+        let result;
+        try{
+          result = await polishText(cap.desc);
+        }catch(e){
+          result = weaveLocal(cap.tags);
+          setStatus('云端繁忙，已切换本地句式生成（简配版）','ok');
+          fillAI(result);
+          return;
         }
+        fillAI(result);
+      }else{
+        // 自带 Key 路径：直连视觉大模型（部分平台不允许浏览器直连，失败会有提示）
+        setStatus('AI 正在阅读照片…');
+        const resp = await fetch(aiBase.value.trim().replace(/\/+$/,'') + '/chat/completions', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+aiKey.value.trim()},
+          body: JSON.stringify({
+            model: aiModel.value.trim(),
+            messages:[
+              { role:'system', content:SYSTEM_PROMPT },
+              { role:'user', content:[
+                { type:'text', text:'请为这张照片撰写杂志文案。' },
+                { type:'image_url', image_url:{ url: await downscale(imgEl) } }
+              ]}
+            ],
+            temperature:0.8, max_tokens:800
+          })
+        });
+        const d = await resp.json();
+        if(!resp.ok) throw new Error(d.error?.message || ('API 错误 '+resp.status));
+        const text = d.choices?.[0]?.message?.content || '';
+        const m = text.match(/\{[\s\S]*\}/);
+        if(!m) throw new Error('模型未返回有效 JSON');
+        fillAI(JSON.parse(m[0]));
       }
-      const resp = await fetch('/api/caption', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-      if(!resp.ok || !data.ok) throw new Error(data.error || '请求失败');
-      fillAI(data.result);
       setStatus('已生成！文字可继续手动编辑','ok');
     }catch(e){
-      setStatus('调用失败：' + e.message + '（可重试或切换句库演示）', 'err');
+      let msg = e.message;
+      if(msg === 'Failed to fetch' && aiPreset.value !== 'builtin')
+        msg = '该平台不允许浏览器直连（跨域限制），请改用「免 Key 体验」档';
+      setStatus('调用失败：' + msg + '（可重试）', 'err');
     }finally{
       btn.disabled = false;
     }
