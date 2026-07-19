@@ -203,8 +203,12 @@
     <div class="field"><input id="aiBase" placeholder="Base URL"></div>
     <div class="field"><input id="aiModel" placeholder="模型名"></div>
     <div class="field"><input id="aiKey" type="password" placeholder="API Key（仅存浏览器本地）"></div>
-    <button class="btn btn-primary" id="btnAI">✦ AI 识别照片生成文案</button>
-    <div class="ai-status" id="aiStatus">未配置 Key 时，点击将使用内置句库演示</div>
+    <button class="btn btn-primary" id="btnAI">✦ 识别照片生成文案</button>
+    <div class="ai-status" id="aiStatus">放入照片后点这里，AI 自动看图写文案</div>
+    <div class="facts" id="factsBox" style="display:none">
+      <div class="facts-title">视觉事实清单（识别 → 创作分离）</div>
+      <div class="facts-body" id="factsBody"></div>
+    </div>
   </div>
 
   <div class="group">
@@ -614,7 +618,10 @@
     'cheeseburger':['芝士汉堡','food'],'sushi':['寿司','food'],'ice cream':['冰淇淋','food'],'ice lolly':['冰棍','food'],
     'plate':['一餐','food'],'soup bowl':['汤碗','food'],'banana':['香蕉','food'],'orange':['橘子','food'],
     'apple':['苹果','food'],'strawberry':['草莓','food'],'pineapple':['菠萝','food'],'lemon':['柠檬','food'],
-    'hotdog':['热狗','food'],'burrito':['卷饼','food'],'spaghetti':['意面','food'],'meat loaf':['肉糕','food'],
+    'hotdog':['热狗','food'],'burrito':['卷饼','food'],'spaghetti':['意面','food'],'meat loaf':['炖肉','food'],
+    'french loaf':['法棍','food'],'mashed potato':['土豆泥','food'],'carbonara':['奶油意面','food'],
+    'guacamole':['牛油果酱','food'],'chocolate sauce':['巧克力酱','food'],'trifle':['奶油甜点','food'],
+    'dumpling':['饺子','food'],'ramen':['拉面','food'],'curry':['咖喱','food'],'steak':['牛排','food'],
     'bicycle':['自行车','street'],'car':['汽车','street'],'cab':['出租车','street'],'minibus':['小巴','street'],
     'street sign':['路牌','street'],'traffic light':['红绿灯','street'],'fire hydrant':['消防栓','street'],
     'cinema':['电影院','street'],'restaurant':['餐厅','street'],'bookshop':['书店','street'],'grocery store':['杂货店','street'],
