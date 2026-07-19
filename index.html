@@ -57,6 +57,9 @@
   .ai-status{font-size:11px;line-height:1.7;color:#8A8271;min-height:18px}
   .ai-status.err{color:#C0392B}
   .ai-status.ok{color:#5C7A4E}
+  .facts{margin-top:10px;border:1px dashed #C9C2B4;border-radius:3px;padding:10px;background:#FBF9F3}
+  .facts-title{font-size:11px;font-weight:600;letter-spacing:1px;color:#8A8271;margin-bottom:6px}
+  .facts-body{font-size:11px;line-height:1.9;color:#5A5346}
   .tip{font-size:11px;line-height:1.8;color:#8A8271;border-top:1px dashed #C9C2B4;padding-top:12px}
 
   /* ===== 画布区 ===== */
@@ -175,7 +178,7 @@
 <body>
 
 <aside class="panel">
-  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.6</span></div>
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.8</span></div>
 
   <div class="group">
     <label>版式 VARIANT</label>
@@ -470,7 +473,7 @@
             model:'openai',
             messages:[
               { role:'system', content:SYSTEM_PROMPT },
-              { role:'user', content:'这是一段图像识别模型对照片的描述："'+description+'"。请据此撰写杂志文案，细节可在此基础上合理发挥。' }
+              { role:'user', content:description + '。请严格基于事实清单撰写杂志文案，清单中没有的具体品牌与实物不要编造，氛围描写可以发挥。' }
             ],
             max_tokens:900
           })
@@ -486,24 +489,118 @@
     throw new Error(lastErr + '，请重试');
   }
 
-  /* ---- 免 Key：浏览器本地视觉模型（transformers.js + MobileNetV4，仅3.9MB） ---- */
+  /* ---- 视觉事实清单（方法论：识别与创作分离，先建事实、再做推断、标注未知） ---- */
   let captioner = null;
-  async function localCaption(imgEl){
+  async function loadTransformers(){
+    // 优先本地运行时（零外部依赖），失败再尝试公共 CDN
+    const sources = ['/vendor/transformers.js',
+                     'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3',
+                     'https://unpkg.com/@huggingface/transformers@3.3.3'];
+    let lastErr;
+    for(const src of sources){
+      try{
+        // 本地运行时包含 23MB WASM 编译，需要较长等待；CDN 作为后备
+        return await withTimeout(import(src), src.startsWith('/') ? 120000 : 45000);
+      }catch(e){ lastErr = e; }
+    }
+    throw lastErr || new Error('视觉引擎加载失败');
+  }
+  async function classify(imgEl){
     if(!captioner){
-      setStatus('首次加载本地视觉模型（约26MB，一次加载长期使用）…');
-      const T = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3');
-      T.env.localModelPath = '/models/';      // 模型由本站提供，免跨域、免翻墙
+      setStatus('加载视觉引擎中（首次含编译，约1~2分钟）…');
+      const T = await loadTransformers();
+      setStatus('视觉引擎就绪，正在加载识别模型…');
+      T.env.localModelPath = '/models/';
       T.env.allowLocalModels = true;
       T.env.allowRemoteModels = false;
       captioner = await T.pipeline('image-classification', 'Xenova/resnet-50');
+      setStatus('模型就绪，正在识别…');
     }
-    setStatus('本地模型正在识图…');
+    const small = await downscale(imgEl, 448);   // 分类模型输入只需 224px，小图更快
+    const out = await captioner(small, { topk: 8 });
+    return (out||[]).filter(o => o.score > 0.02)
+      .map(o => ({ en:o.label.split(',')[0].trim(), score:o.score }));
+  }
+
+  /* 颜色 + 光线维度（画布采样分析） */
+  function analyzeVisual(imgEl){
+    try{
+      const cv = document.createElement('canvas'); cv.width = cv.height = 8;
+      const cx = cv.getContext('2d');
+      cx.drawImage(imgEl, 0, 0, 8, 8);
+      const d = cx.getImageData(0,0,8,8).data;
+      let r=0,g=0,b=0, lumas=[];
+      for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; lumas.push(d[i]*.299+d[i+1]*.587+d[i+2]*.114); }
+      const n = d.length/4; r/=n; g/=n; b/=n;
+      const lMean = lumas.reduce((a,c)=>a+c,0)/n;
+      const lStd = Math.sqrt(lumas.reduce((a,c)=>a+(c-lMean)**2,0)/n);
+      // 颜色词
+      const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2;
+      let color='低饱和';
+      if(l>215) color='奶白'; else if(l<50) color='炭黑';
+      else if(max-min<28) color = l>150?'浅灰':'深灰';
+      else if(r>g && g>=b) color = l>150?'暖橘':'焦糖棕';
+      else if(g>=r && g>=b) color = l>150?'豆绿':'墨绿';
+      else if(b>=r && b>=g) color = l>150?'灰蓝':'藏青';
+      else if(r>b && b>g) color = l>150?'烟粉':'酒红';
+      // 光线词
+      const light = lMean>170?'明亮':(lMean>90?'适中':'昏暗');
+      const contrast = lStd>60?'对比强烈':'过渡柔和';
+      const tone = (r-b)>10?'偏暖':((r-b)<-10?'偏冷':'中性');
+      return { color, light, contrast, tone };
+    }catch(e){ return { color:'柔和', light:'适中', contrast:'过渡柔和', tone:'中性' }; }
+  }
+
+  /* 文字维度（OCR，按需加载，失败不阻塞） */
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      const s = document.createElement('script'); s.src = src;
+      s.onload = res; s.onerror = ()=>rej(new Error('OCR 组件加载失败'));
+      document.head.appendChild(s);
+    });
+  }
+  let ocrLib = null;
+  async function ocrText(imgEl){
+    if(!ocrLib){
+      await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+      ocrLib = window.Tesseract;
+    }
     const small = await downscale(imgEl);
-    const out = await captioner(small, { topk: 5 });
-    if(!out || !out.length) return null;
-    const tags = out.map(o => o.label.split(',')[0].trim());
-    const desc = '图像分类模型识别的画面元素：' + out.map(o => o.label.split(',')[0] + '（' + Math.round(o.score*100) + '%）').join('、');
-    return { desc, tags };
+    const ret = await ocrLib.recognize(small, 'eng+chi_sim');
+    return (ret?.data?.text || '').replace(/\s+/g,' ').trim().slice(0,80);
+  }
+  function withTimeout(p, ms){
+    return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('超时')),ms))]);
+  }
+
+  /* 建立事实清单：我看到（事实）/ 我推断（标"可能是"）/ 我未知（显式标注） */
+  async function buildFacts(imgEl){
+    setStatus('正在识别画面元素…');
+    const cls = await classify(imgEl);
+    const vis = analyzeVisual(imgEl);
+    let ocr = '';
+    setStatus('正在识别图中文字…');
+    try{ ocr = await withTimeout(ocrText(imgEl), 25000); }catch(e){ ocr = ''; }
+
+    const objects = cls.map(o => {
+      const m = CN_MAP[o.en.toLowerCase()];
+      return { en:o.en, pct:Math.round(o.score*100)+'%', cn: m?m[0]:null, cat: m?m[1]:null };
+    });
+    const mapped = objects.filter(o => o.cn);
+    const cat = mapped[0]?.cat || 'default';
+    const seen = {
+      物件: objects.map(o => (o.cn||o.en) + '（置信度' + o.pct + '）'),
+      颜色: vis.color + '色调',
+      光线: vis.light + '、' + vis.contrast + '、色温' + vis.tone,
+      文字: ocr || '未检测到文字'
+    };
+    const sc = SCENE[cat] || SCENE.default;
+    const guess = '可能是' + (mapped.length ? mapped.map(o=>o.cn).slice(0,2).join('与') + '相关的' + sceneName(cat) : '生活场景（置信度低）');
+    const unknown = ['人物数量/姿态/表情（本地模型无法覆盖）','材质与品牌细节','物件的空间层次关系'];
+    return { objects, mapped, cat, vis, seen, guess, unknown };
+  }
+  function sceneName(cat){
+    return { food:'美食场景', drink:'饮品/咖啡场景', street:'街景', fashion:'穿搭场景', animal:'宠物场景', interior:'室内场景', nature:'户外场景', object:'静物场景' }[cat] || '生活场景';
   }
 
   /* ---- 本地杂志文案编织器（离线可用，基于识别标签 + 主色调 + 分类句式） ---- */
@@ -566,33 +663,12 @@
   const CAP_D = ['记录下来，不为别的，就为留住这份刚刚好的心情。','所谓生活感，大概就是这些不值一提却好看的瞬间。','快门按下的理由很简单：今天不想忘记这一刻。'];
   const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 
-  /* 提取照片主色调，转成颜色词 */
-  function dominantColor(imgEl){
-    try{
-      const cv = document.createElement('canvas'); cv.width = cv.height = 8;
-      const cx = cv.getContext('2d');
-      cx.drawImage(imgEl, 0, 0, 8, 8);
-      const d = cx.getImageData(0,0,8,8).data;
-      let r=0,g=0,b=0;
-      for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
-      const n = d.length/4; r/=n; g/=n; b/=n;
-      const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2;
-      if(l>215) return '奶白';
-      if(l<50)  return '炭黑';
-      if(max-min<28) return l>150 ? '浅灰' : '深灰';
-      if(r>g && g>=b) return l>150 ? '暖橘' : '焦糖棕';
-      if(g>=r && g>=b) return l>150 ? '豆绿' : '墨绿';
-      if(b>=r && b>=g) return l>150 ? '灰蓝' : '藏青';
-      if(r>b && b>g) return l>150 ? '烟粉' : '酒红';
-      return '低饱和';
-    }catch(e){ return '柔和'; }
-  }
-
-  function weaveLocal(tags, color){
-    const items = tags.map(t => CN_MAP[t.toLowerCase()]).filter(Boolean);
+  function weaveLocal(facts){
+    const items = facts.mapped.map(o => [o.cn, o.cat]);
     const a = items[0]?.[0] || '眼前之物';
     const b = items[1]?.[0] || '背景细节';
-    const cat = items[0]?.[1] || 'default';
+    const cat = facts.cat;
+    const color = facts.vis.color;
     const sc = SCENE[cat] || SCENE.default;
     const titlePat = pick(['{a}特辑｜'+sc.t, '今日{a}图鉴', items[1] ? '{a}与{b}' : '{a}特辑｜日常']);
     const fill = s => s.replace(/\{a\}/g, a).replace(/\{b\}/g, b).replace(/\{c\}/g, color);
@@ -604,6 +680,18 @@
     };
   }
 
+  /* 在界面上展示"视觉事实清单"（三段式：看到/推断/未知） */
+  function renderFacts(f){
+    const el = document.getElementById('factsBox');
+    document.getElementById('factsBody').innerHTML =
+      '<b>我看到</b>：物件 ' + (f.seen.物件.join('、')||'无') +
+      '<br>　　颜色 ' + f.seen.颜色 + '；光线 ' + f.seen.光线 +
+      '<br>　　文字 ' + f.seen.文字 +
+      '<br><b>我推断</b>：' + f.guess +
+      '<br><b>我未知</b>：' + f.unknown.join('；');
+    el.style.display = 'block';
+  }
+
   /* ---- 真实 AI 调用（纯前端，无需后端） ---- */
   async function callAI(){
     const imgEl = getMainImage();
@@ -611,19 +699,20 @@
     const btn = $('btnAI'); btn.disabled = true;
     try{
       if(aiPreset.value === 'builtin' || !aiKey.value.trim()){
-        // 免 Key 路径：本地识图 → 浏览器直连润色（失败则本地句式兜底）
+        // 免 Key 路径：建立视觉事实清单 → 云端润色（失败则本地句式兜底）
         if(aiPreset.value !== 'builtin') setStatus('未填 Key，自动使用免 Key 本地识图…');
-        const cap = await localCaption(imgEl);
-        if(!cap) throw new Error('本地识图无结果');
-        setStatus('识图完成：' + cap.desc.slice(0,40) + '… 正在润色文案…');
+        const facts = await buildFacts(imgEl);
+        if(!facts.objects.length) throw new Error('本地识图无结果');
+        renderFacts(facts);
+        const names = facts.mapped.map(o => o.cn);
+        setStatus('事实清单已建立，正在润色文案…');
+        const factsText = '视觉事实清单：' + JSON.stringify(facts.seen) + '；编辑推断：' + facts.guess;
         let result;
         try{
-          result = await polishText(cap.desc);
+          result = await polishText(factsText);
         }catch(e){
-          result = weaveLocal(cap.tags, dominantColor(imgEl));
-          const names = cap.tags.map(t => CN_MAP[t.toLowerCase()]).filter(Boolean).map(x => x[0]);
-          setStatus('识别到：' + (names.slice(0,3).join('、') || cap.tags[0]) + '｜云端接口不可用，本次为本地生成', 'ok');
-          fillAI(result);
+          fillAI(weaveLocal(facts));
+          setStatus('识别到：' + (names.slice(0,3).join('、') || facts.objects[0].en) + '｜云端接口不可用，本次为本地生成', 'ok');
           return;
         }
         fillAI(result);
