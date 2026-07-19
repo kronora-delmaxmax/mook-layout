@@ -291,9 +291,9 @@
   <div class="page vA" id="page">
 
     <div class="masthead">
-      <span class="vol">VOL.01</span>
-      <span class="issue">朝食特輯</span>
-      <span class="en">Morning Table Journal</span>
+      <span class="vol" contenteditable>VOL.01</span>
+      <span class="issue" contenteditable>朝食特輯</span>
+      <span class="en" contenteditable>Morning Table Journal</span>
     </div>
 
     <!-- 版式 A -->
@@ -306,7 +306,7 @@
         <div class="title-tag" contenteditable data-k="tag">朝食特辑</div>
       </div>
       <div class="sub">
-        <span class="no">01</span>
+        <span class="no" contenteditable>01</span>
         <span class="t" contenteditable data-k="sub">清晨七点的香气，是这座城市醒来的信号。</span>
       </div>
       <div class="caps">
@@ -346,22 +346,22 @@
       <div class="grid">
         <div class="cell">
           <div class="photo" data-slot="0"><div class="ph"><b>＋</b>图 1</div><img alt=""></div>
-          <div class="num">No.01</div>
+          <div class="num" contenteditable>No.01</div>
           <p class="cap" contenteditable data-k="c0">厚切吐司，炭火烘焙，每日限量四十片。</p>
         </div>
         <div class="cell">
           <div class="photo" data-slot="1"><div class="ph"><b>＋</b>图 2</div><img alt=""></div>
-          <div class="num">No.02</div>
+          <div class="num" contenteditable>No.02</div>
           <p class="cap" contenteditable data-k="c1">手冲曼特宁，中深焙，尾韵有黑巧的甜。</p>
         </div>
         <div class="cell">
           <div class="photo" data-slot="2"><div class="ph"><b>＋</b>图 3</div><img alt=""></div>
-          <div class="num">No.03</div>
+          <div class="num" contenteditable>No.03</div>
           <p class="cap" contenteditable data-k="c2">半熟蛋配海盐，蛋白凝固、蛋黄流心。</p>
         </div>
         <div class="cell">
           <div class="photo" data-slot="3"><div class="ph"><b>＋</b>图 4</div><img alt=""></div>
-          <div class="num">No.04</div>
+          <div class="num" contenteditable>No.04</div>
           <p class="cap" contenteditable data-k="c3">复古搪瓷杯，店主的私藏餐具之一。</p>
         </div>
       </div>
@@ -379,7 +379,7 @@
       <div class="foot-note" contenteditable data-k="footD">—— 每件单品都有它的来处和故事 ——</div>
     </div>
 
-    <div class="folio">— 01 —</div>
+    <div class="folio" contenteditable>— 01 —</div>
   </div>
   </div>
 </main>
@@ -916,7 +916,11 @@
   let stickerSeq = 0;
   function renumberTags(){
     const list = [...document.querySelectorAll('.sticker')].sort((a,b) => a.dataset.seq - b.dataset.seq);
-    list.forEach((st, i) => { st.querySelector('.num-tag').textContent = 'No.' + String(i+1).padStart(2,'0'); });
+    list.forEach((st, i) => {
+      const tag = st.querySelector('.num-tag');
+      if(/^No\.\d+$/.test(tag.textContent.trim()))   // 只重排未被用户改过的编号
+        tag.textContent = 'No.' + String(i+1).padStart(2,'0');
+    });
     const hint = $('stickHint');
     if(hint) hint.style.display = list.length ? 'none' : 'block';
   }
@@ -930,6 +934,8 @@
     const im = document.createElement('img'); st.appendChild(im); st._img = im;
     const tag = document.createElement('div'); tag.className = 'num-tag';
     tag.textContent = 'No.' + String(stickerSeq).padStart(2,'0');
+    tag.contentEditable = true;
+    tag.addEventListener('pointerdown', e => e.stopPropagation());  // 点编号进入编辑，不触发拖动
     st.appendChild(tag);
     const del = document.createElement('div'); del.className = 'del'; del.textContent = '×';
     del.addEventListener('pointerdown', e => { e.stopPropagation(); st.remove(); renumberTags(); });
