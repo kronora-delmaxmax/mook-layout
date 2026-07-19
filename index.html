@@ -100,6 +100,19 @@
     font-family:'Playfair Display',serif;font-size:11px;letter-spacing:3px;color:#8A8271;z-index:5;
   }
 
+  /* ===== 抠图贴纸层 ===== */
+  .sticker{
+    position:absolute;z-index:20;cursor:grab;touch-action:none;user-select:none;
+  }
+  .sticker img{width:100%;display:block;pointer-events:none}
+  .sticker.sel{outline:1.5px dashed #E85D3D;outline-offset:4px}
+  .sticker .del{
+    position:absolute;top:-12px;right:-12px;width:22px;height:22px;border-radius:50%;
+    background:#2B2B2B;color:#fff;font-size:13px;line-height:22px;text-align:center;
+    cursor:pointer;display:none;
+  }
+  .sticker.sel .del{display:block}
+
   .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4}
   .photo img{width:100%;height:100%;object-fit:cover;display:block}
   .photo .ph{
@@ -178,7 +191,7 @@
 <body>
 
 <aside class="panel">
-  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.8</span></div>
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.9</span></div>
 
   <div class="group">
     <label>版式 VARIANT</label>
@@ -224,6 +237,12 @@
       <div class="sw" data-c="#2E4A6B" style="background:#2E4A6B"></div>
       <div class="sw" data-c="#6B7F5E" style="background:#6B7F5E"></div>
     </div>
+  </div>
+
+  <div class="group">
+    <label>抠图贴纸 STICKER</label>
+    <button class="btn btn-ghost" id="btnCut">✂ 把主图主体抠成贴纸</button>
+    <div class="ai-status" id="cutStatus">先放入主图；首次加载抠图模型约44MB</div>
   </div>
 
   <div class="group">
@@ -343,6 +362,7 @@
     const availW = stage.clientWidth - pad;
     const availH = window.innerWidth <= 820 ? Infinity : stage.clientHeight - pad;
     const s = Math.min(availW/600, availH/800, 1);
+    page._scale = s;   // 贴纸手势换算用
     page.style.transform = 'scale(' + s + ')';
     pageWrap.style.width = 600*s + 'px';
     pageWrap.style.height = 800*s + 'px';
@@ -390,6 +410,7 @@
       img.style.border = (+w>0) ? `${w}px solid ${strokeColor}` : 'none';
       img.style.boxSizing = 'border-box';
     });
+    document.querySelectorAll('.sticker').forEach(st => rebakeSticker(st));
   }
   strokeW.addEventListener('input', applyStroke);
   document.getElementById('swatches').addEventListener('click', e=>{
@@ -772,6 +793,137 @@
     caps.slice(0,4).forEach((c,i)=> setText('c'+i, c));
     setText('foot', '—— ' + s + ' ——');
   }
+
+  /* ---- 抠图贴纸：RMBG-1.4 本地分割 + 描边烘焙 + 手势拖动/缩放 ---- */
+  let rmbgModel = null, rmbgProc = null, rmbgT = null;
+  function setCut(m, c){ const el=$('cutStatus'); el.textContent=m; el.className='ai-status '+(c||''); }
+  async function loadRMBG(){
+    if(rmbgModel) return;
+    setCut('加载抠图模型中（约44MB，首次较慢）…');
+    const T = await loadTransformers();
+    T.env.localModelPath = '/models/';
+    T.env.allowLocalModels = true;
+    T.env.allowRemoteModels = false;
+    try{ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4', { dtype:'q8' }); }
+    catch(e){ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4'); }
+    rmbgProc = await T.AutoProcessor.from_pretrained('briaai/RMBG-1.4');
+    rmbgT = T;
+  }
+  async function cutout(imgEl){
+    await loadRMBG();
+    const T = rmbgT;
+    const small = await downscale(imgEl, 1024);
+    const image = await T.RawImage.fromURL(small);
+    setCut('正在抠图…');
+    const { pixel_values } = await rmbgProc(image);
+    const { output } = await rmbgModel({ input: pixel_values });
+    let t = output[0][0];
+    if(t.dims.length === 2) t = t.unsqueeze(0);
+    t = t.mul(255).to('uint8');
+    let mask = T.RawImage.fromTensor(t);
+    if(mask.width !== image.width || mask.height !== image.height)
+      mask = await mask.resize(image.width, image.height);
+    // 合成透明背景 PNG
+    const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(image.toCanvas(), 0, 0);
+    const idata = ctx.getImageData(0, 0, c.width, c.height);
+    const md = mask.data;
+    for(let i = 0; i < md.length; i++) idata.data[i*4+3] = md[i];
+    ctx.putImageData(idata, 0, 0);
+    return c.toDataURL('image/png');
+  }
+
+  /* 把描边直接烘进贴纸 PNG（导出时不会丢失） */
+  function loadImage(src){ return new Promise((res, rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+  async function bakeStroke(cutoutURL, w, color){
+    const img = await loadImage(cutoutURL);
+    const pad = Math.max(4, w + 2);
+    const c = document.createElement('canvas');
+    c.width = img.width + pad*2; c.height = img.height + pad*2;
+    const ctx = c.getContext('2d');
+    if(w > 0){
+      const sil = document.createElement('canvas'); sil.width = c.width; sil.height = c.height;
+      const sx = sil.getContext('2d');
+      sx.drawImage(img, pad, pad);
+      sx.globalCompositeOperation = 'source-in';
+      sx.fillStyle = color; sx.fillRect(0, 0, sil.width, sil.height);
+      const o = [[-w,0],[w,0],[0,-w],[0,w],[-w*.7,-w*.7],[w*.7,-w*.7],[-w*.7,w*.7],[w*.7,w*.7]];
+      for(const [dx,dy] of o) ctx.drawImage(sil, dx, dy);
+    }
+    ctx.drawImage(img, pad, pad);
+    return c.toDataURL('image/png');
+  }
+
+  /* 贴纸手势：单指拖动，双指捏合缩放 */
+  let activeSticker = null;
+  function selectSticker(st){
+    document.querySelectorAll('.sticker').forEach(x => x.classList.toggle('sel', x === st));
+    activeSticker = st;
+  }
+  page.addEventListener('pointerdown', e => { if(!e.target.closest('.sticker')) selectSticker(null); });
+  function applyTransform(st){
+    st.style.transformOrigin = 'top left';
+    st.style.transform = 'translate(' + st._x + 'px,' + st._y + 'px) scale(' + st._s + ')';
+  }
+  async function rebakeSticker(st){
+    st._img.src = await bakeStroke(st.dataset.cutout, +strokeW.value, strokeColor);
+  }
+  async function addSticker(cutoutURL){
+    const st = document.createElement('div');
+    st.className = 'sticker';
+    st.dataset.cutout = cutoutURL;
+    st._x = 90; st._y = 320; st._s = 1;
+    st.style.left = '0'; st.style.top = '0'; st.style.width = '45%';
+    const im = document.createElement('img'); st.appendChild(im); st._img = im;
+    const del = document.createElement('div'); del.className = 'del'; del.textContent = '×';
+    del.addEventListener('pointerdown', e => { e.stopPropagation(); st.remove(); });
+    st.appendChild(del);
+    page.appendChild(st);
+    applyTransform(st);
+
+    const pts = new Map();
+    st.addEventListener('pointerdown', e => {
+      selectSticker(st);
+      st.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+      st._startX = st._x; st._startY = st._y; st._startS = st._s;
+      if(pts.size === 2){ const [a,b] = [...pts.values()]; st._pinch0 = Math.hypot(a.x-b.x, a.y-b.y); }
+    });
+    st.addEventListener('pointermove', e => {
+      if(!pts.has(e.pointerId)) return;
+      const prev = pts.get(e.pointerId);
+      pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+      const ps = page._scale || 1;
+      if(pts.size === 1){
+        st._x += (e.clientX - prev.x) / ps;
+        st._y += (e.clientY - prev.y) / ps;
+      }else if(pts.size === 2){
+        const [a,b] = [...pts.values()];
+        const d = Math.hypot(a.x-b.x, a.y-b.y);
+        st._s = Math.min(4, Math.max(0.2, st._startS * d / (st._pinch0 || d)));
+      }
+      applyTransform(st);
+    });
+    const up = e => { pts.delete(e.pointerId); if(pts.size < 2) st._pinch0 = null; };
+    st.addEventListener('pointerup', up);
+    st.addEventListener('pointercancel', up);
+
+    selectSticker(st);
+    await rebakeSticker(st);
+  }
+  $('btnCut').addEventListener('click', async () => {
+    const imgEl = getMainImage();
+    if(!imgEl){ setCut('请先点击照片框放入主图照片','err'); return; }
+    const btn = $('btnCut'); btn.disabled = true;
+    try{
+      const cut = await cutout(imgEl);
+      await addSticker(cut);
+      setCut('抠图完成！拖动移动、双指缩放；描边用上方滑杆和色板调','ok');
+    }catch(e){
+      setCut('抠图失败：' + String(e.message||e).slice(0,60), 'err');
+    }finally{ btn.disabled = false; }
+  });
 
   /* ---- 内置句库（未配 Key 时的兜底演示） ---- */
   const pools = {
