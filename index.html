@@ -490,12 +490,12 @@
   let captioner = null;
   async function localCaption(imgEl){
     if(!captioner){
-      setStatus('首次加载本地视觉模型（仅约4MB）…');
+      setStatus('首次加载本地视觉模型（约26MB，一次加载长期使用）…');
       const T = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3');
       T.env.localModelPath = '/models/';      // 模型由本站提供，免跨域、免翻墙
       T.env.allowLocalModels = true;
       T.env.allowRemoteModels = false;
-      captioner = await T.pipeline('image-classification', 'onnx-community/mobilenetv4_conv_small.e2400_r224_in1k');
+      captioner = await T.pipeline('image-classification', 'Xenova/resnet-50');
     }
     setStatus('本地模型正在识图…');
     const small = await downscale(imgEl);
@@ -621,7 +621,8 @@
           result = await polishText(cap.desc);
         }catch(e){
           result = weaveLocal(cap.tags, dominantColor(imgEl));
-          setStatus('已基于识别结果生成（' + cap.tags.slice(0,3).join('、') + '）｜云端接口不可用，本次为本地生成', 'ok');
+          const names = cap.tags.map(t => CN_MAP[t.toLowerCase()]).filter(Boolean).map(x => x[0]);
+          setStatus('识别到：' + (names.slice(0,3).join('、') || cap.tags[0]) + '｜云端接口不可用，本次为本地生成', 'ok');
           fillAI(result);
           return;
         }
