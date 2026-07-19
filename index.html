@@ -175,7 +175,7 @@
 <body>
 
 <aside class="panel">
-  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.5</span></div>
+  <div class="brand">刊<span>MOOK LAYOUT LAB — VOL.01 · v0.6</span></div>
 
   <div class="group">
     <label>版式 VARIANT</label>
@@ -506,26 +506,101 @@
     return { desc, tags };
   }
 
-  /* ---- 本地句式编织（云端繁忙时的兜底，离线可用） ---- */
-  const CN_MAP = { 'espresso':'浓缩咖啡','coffee':'咖啡','cup':'咖啡杯','mug':'马克杯','plate':'餐盘','bakery':'面包房','bread':'面包','bagel':'贝果','pretzel':'碱水结','chocolate':'巧克力','pizza':'披萨','sandwich':'三明治','hamburger':'汉堡','sushi':'寿司','ice cream':'冰淇淋','wine':'红酒','bottle':'玻璃瓶','book':'书','library':'书架','vase':'花瓶','flower':'花','bicycle':'自行车','car':'汽车','street':'街道','building':'建筑','bridge':'桥','dog':'小狗','cat':'猫','bird':'鸟','chair':'椅子','table':'桌子','lamp':'灯','sofa':'沙发','keyboard':'键盘','laptop':'笔记本电脑','camera':'相机','shoe':'鞋','sneaker':'球鞋','jacket':'外套','jean':'牛仔裤','sunglasses':'墨镜','hat':'帽子','bow tie':'领结','suit':'西装','dress':'连衣裙','skirt':'半裙','handbag':'手提包','backpack':'双肩包','watch':'手表','sunglass':'墨镜' };
-  const WEAVE = {
-    sub: ['清晨的光线刚刚好，一切都来得及。','不赶时间，是对这一天最基本的尊重。','日常即景，值得被认真排进一页里。','平凡物件，也有它的出场方式。'],
-    eng: ['Daily Notes in the City','A Slow Morning','Ordinary Things, Good Days','City Walk Journal'],
-    capA: ['{a}是今天的主角，质感在线，细节经得起放大。','先注意到的是{a}，安静，却很有存在感。'],
-    capB: ['旁边的{b}同样是加分项，搭配得恰到好处。','{b}在一旁作陪，画面因此完整了起来。'],
-    capC: ['光线落在物件上的角度刚好，随手一拍就是封面感。','这一刻的氛围很松弛，像杂志里的一页日常。'],
-    capD: ['记录下来，不为别的，就为留住这份刚刚好的心情。','所谓生活感，大概就是这些不值一提却好看的瞬间。']
+  /* ---- 本地杂志文案编织器（离线可用，基于识别标签 + 主色调 + 分类句式） ---- */
+  // 标签 → [中文名, 类别]
+  const CN_MAP = {
+    'espresso':['浓缩咖啡','drink'],'cup':['咖啡杯','drink'],'mug':['马克杯','drink'],'coffee mug':['咖啡杯','drink'],
+    'wine bottle':['红酒瓶','drink'],'beer glass':['啤酒杯','drink'],'beer bottle':['啤酒瓶','drink'],'bottle':['玻璃瓶','drink'],
+    'teapot':['茶壶','drink'],'water bottle':['水壶','drink'],'pop bottle':['汽水','drink'],
+    'bakery':['面包房','food'],'bread':['面包','food'],'bagel':['贝果','food'],'pretzel':['碱水结','food'],
+    'chocolate':['巧克力','food'],'pizza':['披萨','food'],'sandwich':['三明治','food'],'hamburger':['汉堡','food'],
+    'cheeseburger':['芝士汉堡','food'],'sushi':['寿司','food'],'ice cream':['冰淇淋','food'],'ice lolly':['冰棍','food'],
+    'plate':['一餐','food'],'soup bowl':['汤碗','food'],'banana':['香蕉','food'],'orange':['橘子','food'],
+    'apple':['苹果','food'],'strawberry':['草莓','food'],'pineapple':['菠萝','food'],'lemon':['柠檬','food'],
+    'hotdog':['热狗','food'],'burrito':['卷饼','food'],'spaghetti':['意面','food'],'meat loaf':['肉糕','food'],
+    'bicycle':['自行车','street'],'car':['汽车','street'],'cab':['出租车','street'],'minibus':['小巴','street'],
+    'street sign':['路牌','street'],'traffic light':['红绿灯','street'],'fire hydrant':['消防栓','street'],
+    'cinema':['电影院','street'],'restaurant':['餐厅','street'],'bookshop':['书店','street'],'grocery store':['杂货店','street'],
+    'shoe shop':['鞋店','street'],'library':['图书馆','street'],'bridge':['桥','street'],'mailbox':['邮筒','street'],
+    'running shoe':['球鞋','fashion'],'sneaker':['球鞋','fashion'],'shoe':['鞋','fashion'],'sandal':['凉鞋','fashion'],
+    'jacket':['外套','fashion'],'jean':['牛仔裤','fashion'],'sunglasses':['墨镜','fashion'],'sunglass':['墨镜','fashion'],
+    'suit':['西装','fashion'],'dress':['连衣裙','fashion'],'skirt':['半裙','fashion'],'handbag':['手提包','fashion'],
+    'backpack':['双肩包','fashion'],'watch':['手表','fashion'],'bow tie':['领结','fashion'],'cowboy hat':['宽檐帽','fashion'],
+    'sombrero':['宽檐帽','fashion'],'wallet':['钱包','fashion'],'trench coat':['风衣','fashion'],
+    'tabby':['虎斑猫','animal'],'persian cat':['波斯猫','animal'],'siamese cat':['暹罗猫','animal'],
+    'golden retriever':['金毛','animal'],'labrador retriever':['拉布拉多','animal'],'pug':['巴哥犬','animal'],
+    'beagle':['比格犬','animal'],'cat':['猫','animal'],'dog':['小狗','animal'],'bird':['鸟','animal'],
+    'chair':['椅子','interior'],'dining table':['餐桌','interior'],'table':['桌子','interior'],'table lamp':['台灯','interior'],
+    'studio couch':['沙发','interior'],'sofa':['沙发','interior'],'bookcase':['书架','interior'],'keyboard':['键盘','interior'],
+    'laptop':['笔记本电脑','interior'],'monitor':['显示器','interior'],'desk':['书桌','interior'],'vase':['花瓶','interior'],
+    'candle':['蜡烛','interior'],'clock':['时钟','interior'],'bookshelf':['书架','interior'],
+    'daisy':['雏菊','nature'],'seashore':['海边','nature'],'lakeside':['湖边','nature'],'alp':['山景','nature'],
+    'valley':['山谷','nature'],'coral reef':['珊瑚礁','nature'],'sunflower':['向日葵','nature'],
+    'camera':['相机','object'],'tripod':['三脚架','object'],'book':['书','object'],'notebook':['笔记本','object'],
+    'umbrella':['雨伞','object'],'guitar':['吉他','object'],'piano':['钢琴','object']
   };
+  const SCENE = {
+    food:  { t:'认真吃饭这件事', e:['Table Manners','Slow Food Diary'], s:['食物是日常里最诚实的慰藉。','好好吃饭，日子就不会太差。'] },
+    drink: { t:'一杯的时间', e:['A Cup of Time','Cafe Notes'], s:['一杯饮品的时间，刚好够放空一次。','咖啡因与晨光，是清晨的两件小事。'] },
+    street:{ t:'城市散步笔记', e:['City Walk Journal','Street Notes'], s:['走路看风景，是成本最低的旅行。','街角总有新发现，只要你肯慢下来。'] },
+    fashion:{ t:'今日穿搭志', e:['Daily Outfit','Wardrobe Notes'], s:['穿得好看，是对自己的基本礼貌。','今日造型，舒服优先，好看其次。'] },
+    animal:{ t:'有它陪伴的日子', e:['Days with My Pal','Pet Diary'], s:['它什么都不用做，就已经很可爱了。','有小家伙在的日子，很难过得潦草。'] },
+    interior:{ t:'房间的一角', e:['Room Tour','Corner of My Room'], s:['把家收拾成喜欢的样子，是成年人的浪漫。','好的角落，值得被认真拍下来。'] },
+    nature:{ t:'去户外', e:['Into the Wild','Weekend Escape'], s:['自然的治愈力，从来不需要滤镜。','出门走走，烦恼就短了一截。'] },
+    object:{ t:'爱物志', e:['Favorite Things','Object Diary'], s:['趁手的物件，用久了就有感情。','好物不言，自有光华。'] },
+    default:{ t:'日常即景', e:['Daily Notes','Ordinary Days'], s:['日常即景，值得被认真排进一页里。','平凡物件，也有它的出场方式。'] }
+  };
+  const CAPS = {
+    food: ['{a}是今天的主角。色泽和卖相都在线，入口前已经赢了一半。','先说{a}。分量刚好，调味克制，是会想再吃一次的水准。'],
+    drink:['{a}还冒着热气。杯壁的温度刚好，第一口先暖了手心。','{a}入口顺滑，尾韵干净。配这个下午，刚刚好。'],
+    street:['路过了{a}。它不动声色地立在那里，却是这条街的注脚。','{a}闯入镜头的瞬间，这条街忽然有了故事感。'],
+    fashion:['{a}是今天这套的点睛之笔，质感和版型都挑不出毛病。','{a}上身的瞬间，今天的风格就定了调。'],
+    animal:['{a}今天的状态松弛满分，镜头凑近了也懒得躲。','{a}出镜。它不看镜头的时候，反而最好看。'],
+    interior:['{a}安静地待在角落，却是这个房间气质的支点。','{a}的位置换了三次，终于找到了它该在的地方。'],
+    nature:['{a}在眼前铺开，手机随便一举就是一张明信片。','{a}。人站在这样的景色里，说话都会不自觉小声。'],
+    object:['{a}用了很久，边角有了痕迹，反而更喜欢了。','{a}。新的时候好看，用出痕迹之后更有味道。'],
+    default:['{a}是今天的主角，安静，却很有存在感。','先注意到的是{a}，质感在线，细节经得起放大。']
+  };
+  const CAP_B = ['旁边的{b}同样是加分项，和主角搭得恰到好处。','{b}在一旁作陪，画面因此完整了起来。'];
+  const CAP_C = ['整张照片是{c}色调，光线落下的角度刚好，随手一拍就有封面感。','{c}的氛围里，一切都慢了下来。这一刻值得被排进一页杂志。'];
+  const CAP_D = ['记录下来，不为别的，就为留住这份刚刚好的心情。','所谓生活感，大概就是这些不值一提却好看的瞬间。','快门按下的理由很简单：今天不想忘记这一刻。'];
   const pick = arr => arr[Math.floor(Math.random()*arr.length)];
-  function weaveLocal(tags){
-    const cns = tags.map(t => CN_MAP[t.toLowerCase()]).filter(Boolean);
-    const a = cns[0] || '眼前之物', b = cns[1] || '背景细节';
-    const fill = s => s.replace(/\{a\}/g, a).replace(/\{b\}/g, b);
+
+  /* 提取照片主色调，转成颜色词 */
+  function dominantColor(imgEl){
+    try{
+      const cv = document.createElement('canvas'); cv.width = cv.height = 8;
+      const cx = cv.getContext('2d');
+      cx.drawImage(imgEl, 0, 0, 8, 8);
+      const d = cx.getImageData(0,0,8,8).data;
+      let r=0,g=0,b=0;
+      for(let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
+      const n = d.length/4; r/=n; g/=n; b/=n;
+      const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2;
+      if(l>215) return '奶白';
+      if(l<50)  return '炭黑';
+      if(max-min<28) return l>150 ? '浅灰' : '深灰';
+      if(r>g && g>=b) return l>150 ? '暖橘' : '焦糖棕';
+      if(g>=r && g>=b) return l>150 ? '豆绿' : '墨绿';
+      if(b>=r && b>=g) return l>150 ? '灰蓝' : '藏青';
+      if(r>b && b>g) return l>150 ? '烟粉' : '酒红';
+      return '低饱和';
+    }catch(e){ return '柔和'; }
+  }
+
+  function weaveLocal(tags, color){
+    const items = tags.map(t => CN_MAP[t.toLowerCase()]).filter(Boolean);
+    const a = items[0]?.[0] || '眼前之物';
+    const b = items[1]?.[0] || '背景细节';
+    const cat = items[0]?.[1] || 'default';
+    const sc = SCENE[cat] || SCENE.default;
+    const titlePat = pick(['{a}特辑｜'+sc.t, '今日{a}图鉴', items[1] ? '{a}与{b}' : '{a}特辑｜日常']);
+    const fill = s => s.replace(/\{a\}/g, a).replace(/\{b\}/g, b).replace(/\{c\}/g, color);
     return {
-      title: a + '特辑｜日常即景',
-      subtitle: pick(WEAVE.sub),
-      english: pick(WEAVE.eng),
-      captions: [ fill(pick(WEAVE.capA)), fill(pick(WEAVE.capB)), pick(WEAVE.capC), pick(WEAVE.capD) ]
+      title: fill(titlePat),
+      subtitle: pick(sc.s),
+      english: pick(sc.e),
+      captions: [ fill(pick(CAPS[cat]||CAPS.default)), fill(pick(CAP_B)), fill(pick(CAP_C)), pick(CAP_D) ]
     };
   }
 
@@ -545,8 +620,8 @@
         try{
           result = await polishText(cap.desc);
         }catch(e){
-          result = weaveLocal(cap.tags);
-          setStatus('云端繁忙，已切换本地句式生成（简配版）','ok');
+          result = weaveLocal(cap.tags, dominantColor(imgEl));
+          setStatus('已基于识别结果生成（' + cap.tags.slice(0,3).join('、') + '）｜云端接口不可用，本次为本地生成', 'ok');
           fillAI(result);
           return;
         }
