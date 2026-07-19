@@ -112,6 +112,9 @@
     cursor:pointer;display:none;
   }
   .sticker.sel .del{display:block}
+  /* 导出时隐藏编辑痕迹 */
+  .exporting .sticker{outline:none!important}
+  .exporting .sticker .del{display:none!important}
   .sticker .num-tag{
     position:absolute;left:2px;top:calc(100% + 3px);white-space:nowrap;
     font-family:'Playfair Display',serif;font-size:13px;font-weight:700;
@@ -1033,8 +1036,11 @@
     btn.textContent = '生成中…';
     const prev = page.style.transform;
     page.style.transform = 'none';   // 导出时恢复原始尺寸，保证全分辨率
+    page.classList.add('exporting');
+    if(typeof selectSticker === 'function') selectSticker(null);
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
       page.style.transform = prev;
+      page.classList.remove('exporting');
       const a = document.createElement('a');
       a.download = '朝食特辑_VOL01.png';
       a.href = cv.toDataURL('image/png');
@@ -1042,6 +1048,7 @@
       btn.textContent = '↓ 导出 PNG（小红书 3:4）';
     }).catch(()=>{
       page.style.transform = prev;
+      page.classList.remove('exporting');
       btn.textContent = '↓ 导出 PNG（小红书 3:4）';
     });
   });
