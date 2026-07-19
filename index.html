@@ -280,9 +280,9 @@
   <div class="tip">
     操作提示：<br>
     · 点击照片框放入你的照片<br>
-    · 填入 API Key 后，AI 会真的"看"照片写图注<br>
     · 所有文字可直接点选编辑<br>
-    · Key 仅保存在你自己浏览器的 localStorage
+    · 手机导出：点导出后在分享面板选<br>「存储图像 / 保存到相册」<br>
+    · 电脑导出：自动下载 PNG 文件
   </div>
 </aside>
 
@@ -1047,11 +1047,25 @@
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
       page.style.transform = prev;
       page.classList.remove('exporting');
-      const a = document.createElement('a');
-      a.download = '朝食特辑_VOL01.png';
-      a.href = cv.toDataURL('image/png');
-      a.click();
       btn.textContent = '↓ 导出 PNG（小红书 3:4）';
+      cv.toBlob(async blob => {
+        const file = new File([blob], '朝食特辑_VOL01.png', { type:'image/png' });
+        // 手机端：优先调系统分享面板，可选"存储图像"直接存进相册
+        if(navigator.canShare && navigator.canShare({ files:[file] })){
+          try{
+            await navigator.share({ files:[file], title:'朝食特辑' });
+            return;
+          }catch(e){ if(e.name === 'AbortError') return; }
+        }
+        // 桌面端 / 不支持分享：走传统下载
+        const a = document.createElement('a');
+        a.download = '朝食特辑_VOL01.png';
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        setTimeout(()=> URL.revokeObjectURL(a.href), 5000);
+        btn.textContent = '已下载（iOS 可长按图片存储到相册）';
+        setTimeout(()=> btn.textContent = '↓ 导出 PNG（小红书 3:4）', 3000);
+      }, 'image/png');
     }).catch(()=>{
       page.style.transform = prev;
       page.classList.remove('exporting');
