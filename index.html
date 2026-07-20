@@ -1077,7 +1077,10 @@
     let maskImg = T.RawImage.fromTensor(t);
     if(maskImg.width !== image.width || maskImg.height !== image.height)
       maskImg = await maskImg.resize(image.width, image.height);
-    const photo = image.toCanvas();
+    // 画到自己创建的画布上：toCanvas() 在部分内核返回非标准画布（无 toDataURL）
+    const photo = document.createElement('canvas');
+    photo.width = image.width; photo.height = image.height;
+    photo.getContext('2d').drawImage(image.toCanvas(), 0, 0);
     // 蒙版画布：黑底，alpha 通道承载抠图遮罩（destination-in 只认 alpha）
     const mask = document.createElement('canvas');
     mask.width = image.width; mask.height = image.height;
