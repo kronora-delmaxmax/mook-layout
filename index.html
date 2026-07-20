@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>刊 · 朝食特辑 — 杂志排版原型</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Special+Elite&display=swap" rel="stylesheet">
@@ -834,6 +834,9 @@
     setText('subB', en);
     setText('titleC', t.replace(/^.*[｜|]/,'').slice(0,6));
     setText('subC', en.toUpperCase());
+    setText('titleD', t.replace(/^.*[｜|]/,'').slice(0,6));
+    setText('subD', en.toUpperCase());
+    setText('footD', '—— ' + s + ' ——');
     caps.slice(0,4).forEach((c,i)=> setText('c'+i, c));
     setText('foot', '—— ' + s + ' ——');
   }
@@ -960,6 +963,9 @@
       if(pts.size === 1){
         st._x += (e.clientX - prev.x) / ps;
         st._y += (e.clientY - prev.y) / ps;
+        // 边界约束：防止贴纸被拖出画布"丢失"
+        st._x = Math.max(-st.offsetWidth * st._s * 0.6, Math.min(560, st._x));
+        st._y = Math.max(-40, Math.min(760, st._y));
       }else if(pts.size === 2){
         const [a,b] = [...pts.values()];
         const d = Math.hypot(a.x-b.x, a.y-b.y);
