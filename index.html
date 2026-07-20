@@ -1170,8 +1170,10 @@
       if(pts.size === 1){
         st._x += (e.clientX - prev.x) / ps;
         st._y += (e.clientY - prev.y) / ps;
-        st._x = Math.max(-st.offsetWidth * st._s * 0.6, Math.min(560, st._x));
-        st._y = Math.max(-40, Math.min(pageH - 40, st._y));
+        // 边界钳制：按贴纸实际缩放后的宽高，允许大部移出画布，各向留 40px 抓手防丢
+        const sw = st.offsetWidth * st._s, sh = st._img.offsetHeight * st._s;
+        st._x = Math.max(-sw + 40, Math.min(600 - 40, st._x));
+        st._y = Math.max(-sh + 40, Math.min(pageH - 40, st._y));
       }else if(pts.size === 2){
         const [a,b] = [...pts.values()];
         const d = Math.hypot(a.x-b.x, a.y-b.y);
