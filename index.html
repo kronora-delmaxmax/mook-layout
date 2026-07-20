@@ -84,6 +84,7 @@
   }
   [contenteditable]{outline:none;cursor:text}
   [contenteditable]:focus{background:rgba(232,93,61,.07);border-radius:2px}
+  [contenteditable].overflow{outline:1.5px dashed #C0392B!important;outline-offset:2px}
 
   /* 刊号条 / 页脚（共用） */
   .masthead{
@@ -139,7 +140,8 @@
     font-size:11px;letter-spacing:2px;color:#6E6656;
   }
 
-  .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4}
+  .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4;touch-action:none}
+  .photo.filled{cursor:grab}
   .photo img{width:100%;height:100%;object-fit:cover;display:block}
   .photo .ph{
     position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;
@@ -156,6 +158,7 @@
   .vA .title-v{
     writing-mode:vertical-rl;font-size:44px;font-weight:900;letter-spacing:6px;line-height:1.1;
     background:var(--paper);padding:14px 8px;box-shadow:4px 4px 0 rgba(43,43,43,.12);
+    max-height:55%;overflow:hidden;
   }
   .vA .title-tag{
     writing-mode:vertical-rl;font-size:11px;letter-spacing:3px;background:var(--accent);
@@ -268,13 +271,27 @@
 
   <div class="group">
     <label>抠图贴纸 STICKER</label>
-    <button class="btn btn-ghost" id="btnCut">✂ 把主图主体抠成贴纸</button>
-    <div class="ai-status" id="cutStatus">先放入主图；首次加载抠图模型约44MB</div>
+    <button class="btn btn-ghost" id="btnCut">✂ 抠图做贴纸</button>
+    <div class="seg" style="margin-top:8px">
+      <button id="zTop">置顶</button>
+      <button id="zBottom">置底</button>
+      <button id="btnUndo">↩ 撤销</button>
+    </div>
+    <div class="ai-status" id="cutStatus">选照片抠图；首次加载抠图模型约44MB</div>
   </div>
 
   <div class="group">
     <label>导出 EXPORT</label>
-    <button class="btn btn-ghost" id="btnExport">↓ 导出 PNG（小红书 3:4）</button>
+    <div class="field">
+      <select id="sizeSel">
+        <option value="800">3:4 小红书（默认）</option>
+        <option value="600">1:1 方形</option>
+        <option value="750">4:5 Instagram</option>
+        <option value="1067">9:16 全屏 / Story</option>
+      </select>
+    </div>
+    <button class="btn btn-ghost" id="btnExport">↓ 导出 PNG</button>
+    <div class="ai-status err" id="warnLine"></div>
   </div>
 
   <div class="tip">
@@ -395,19 +412,34 @@
   let activeSlot = null, strokeColor = '#FFFFFF';
 
   /* ---- 画布自适应缩放：内部固定 600×800 设计坐标，按可用空间整体缩放 ---- */
+  let pageH = 800;   // 画布高度（导出尺寸切换用）
   function fitPage(){
     const pad = window.innerWidth <= 820 ? 28 : 72;
     const availW = stage.clientWidth - pad;
     const availH = window.innerWidth <= 820 ? Infinity : stage.clientHeight - pad;
-    const s = Math.min(availW/600, availH/800, 1);
-    page._scale = s;   // 贴纸手势换算用
-    page.style.transform = 'scale(' + s + ')';
+    const s = Math.min(availW/600, availH/pageH, 1);
+    page._scale = s;   // 手势换算用
+    // 优先用 zoom：iOS 在 zoom 容器内编辑文字光标不错位；不支持 zoom 的浏览器退回 transform
+    if('zoom' in document.body.style){
+      page.style.transform = '';
+      page.style.zoom = s;
+    }else{
+      page.style.zoom = '';
+      page.style.transform = 'scale(' + s + ')';
+    }
     pageWrap.style.width = 600*s + 'px';
-    pageWrap.style.height = 800*s + 'px';
+    pageWrap.style.height = pageH*s + 'px';
   }
   window.addEventListener('resize', fitPage);
   window.addEventListener('orientationchange', ()=> setTimeout(fitPage, 200));
   fitPage();
+
+  /* 导出尺寸切换 */
+  document.getElementById('sizeSel').addEventListener('change', e => {
+    pageH = +e.target.value;
+    page.style.height = pageH + 'px';
+    fitPage();
+  });
 
   /* ---- 版式切换 ---- */
   const lays = { vA:'.layA', vB:'.layB', vC:'.layC', vD:'.layD' };
@@ -423,8 +455,54 @@
 
   /* ---- 照片上传 ---- */
   document.querySelectorAll('.photo').forEach(p=>{
-    p.addEventListener('click', ()=>{ activeSlot = p; fileIn.click(); });
+    p.addEventListener('click', ()=>{
+      if(p._suppressClick){ p._suppressClick = false; return; }  // 刚拖完不触发换图
+      activeSlot = p; fileIn.click();
+    });
   });
+
+  /* ---- 相框内照片手势：拖动调构图，双指缩放 ---- */
+  function attachPhotoGestures(ph){
+    const img = ph.querySelector('img');
+    ph._pz = 1; ph._px = 0; ph._py = 0;
+    const pts = new Map();
+    let moved = false;
+    ph.addEventListener('pointerdown', e => {
+      if(!ph.classList.contains('filled')) return;   // 未填图时走点击上传
+      ph.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+      moved = false;
+      ph._spz = ph._pz;
+      if(pts.size === 2){ const [a,b] = [...pts.values()]; ph._pinch0 = Math.hypot(a.x-b.x, a.y-b.y); }
+    });
+    ph.addEventListener('pointermove', e => {
+      if(!pts.has(e.pointerId)) return;
+      const prev = pts.get(e.pointerId);
+      pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+      const ps = page._scale || 1;
+      if(pts.size === 1){
+        const dx = (e.clientX - prev.x)/ps, dy = (e.clientY - prev.y)/ps;
+        if(Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+        ph._px += dx; ph._py += dy;
+      }else if(pts.size === 2){
+        const [a,b] = [...pts.values()];
+        const d = Math.hypot(a.x-b.x, a.y-b.y);
+        ph._pz = Math.min(4, Math.max(1, ph._spz * d / (ph._pinch0 || d)));
+        moved = true;
+      }
+      img.style.transformOrigin = 'center';
+      img.style.transform = 'translate(' + ph._px + 'px,' + ph._py + 'px) scale(' + ph._pz + ')';
+      img.style.maxWidth = 'none';
+    });
+    const up = e => {
+      if(moved) ph._suppressClick = true;   // 抑制随后的 click 换图
+      pts.delete(e.pointerId);
+      if(pts.size < 2) ph._pinch0 = null;
+    };
+    ph.addEventListener('pointerup', up);
+    ph.addEventListener('pointercancel', up);
+  }
+  document.querySelectorAll('.photo').forEach(attachPhotoGestures);
   fileIn.addEventListener('change', ()=>{
     const f = fileIn.files[0]; if(!f) return;
     if(cutPickMode){
@@ -437,6 +515,8 @@
     r.onload = e=>{
       const img = activeSlot.querySelector('img');
       img.src = e.target.result;
+      img.style.transform = '';          // 换图时复位构图
+      activeSlot._pz = 1; activeSlot._px = 0; activeSlot._py = 0;
       activeSlot.classList.add('filled');
       applyStroke();
     };
@@ -841,6 +921,25 @@
     setText('foot', '—— ' + s + ' ——');
   }
 
+  /* ---- 文字溢出检测：超出页面边缘的文字标红框警告 ---- */
+  let ovTimer = null;
+  page.addEventListener('input', () => {
+    clearTimeout(ovTimer);
+    ovTimer = setTimeout(checkOverflow, 300);
+  });
+  function checkOverflow(){
+    const pr = page.getBoundingClientRect();
+    let any = false;
+    page.querySelectorAll('[contenteditable]').forEach(el => {
+      const r = el.getBoundingClientRect();
+      if(!r.width && !r.height) { el.classList.remove('overflow'); return; }
+      const over = r.bottom > pr.bottom - 6 || r.right > pr.right - 6 || r.top < pr.top + 4 || r.left < pr.left + 4;
+      el.classList.toggle('overflow', over);
+      if(over) any = true;
+    });
+    $('warnLine').textContent = any ? '⚠ 有文字超出版面边缘，导出会被裁切' : '';
+  }
+
   /* ---- 抠图贴纸：RMBG-1.4 本地分割 + 描边烘焙 + 手势拖动/缩放 ---- */
   let rmbgModel = null, rmbgProc = null, rmbgT = null;
   function setCut(m, c){ const el=$('cutStatus'); el.textContent=m; el.className='ai-status '+(c||''); }
@@ -927,26 +1026,11 @@
     const hint = $('stickHint');
     if(hint) hint.style.display = list.length ? 'none' : 'block';
   }
-  async function addSticker(cutoutURL){
-    const st = document.createElement('div');
-    st.className = 'sticker';
-    st.dataset.cutout = cutoutURL;
-    st.dataset.seq = ++stickerSeq;
-    st._x = 90 + (stickerSeq % 3) * 60; st._y = 300 + (stickerSeq % 2) * 60; st._s = 1;
-    st.style.left = '0'; st.style.top = '0'; st.style.width = '45%';
-    const im = document.createElement('img'); st.appendChild(im); st._img = im;
-    const tag = document.createElement('div'); tag.className = 'num-tag';
-    tag.textContent = 'No.' + String(stickerSeq).padStart(2,'0');
-    tag.contentEditable = true;
-    tag.addEventListener('pointerdown', e => e.stopPropagation());  // 点编号进入编辑，不触发拖动
-    st.appendChild(tag);
-    const del = document.createElement('div'); del.className = 'del'; del.textContent = '×';
-    del.addEventListener('pointerdown', e => { e.stopPropagation(); st.remove(); renumberTags(); });
-    st.appendChild(del);
-    page.appendChild(st);
-    applyTransform(st);
-    renumberTags();
+  /* 贴纸操作历史（撤销用）：保留元素引用，监听器不失效 */
+  const stickerHistory = [];
+  let zTopN = 21, zBottomN = 20;
 
+  function bindSticker(st){
     const pts = new Map();
     st.addEventListener('pointerdown', e => {
       selectSticker(st);
@@ -963,9 +1047,8 @@
       if(pts.size === 1){
         st._x += (e.clientX - prev.x) / ps;
         st._y += (e.clientY - prev.y) / ps;
-        // 边界约束：防止贴纸被拖出画布"丢失"
         st._x = Math.max(-st.offsetWidth * st._s * 0.6, Math.min(560, st._x));
-        st._y = Math.max(-40, Math.min(760, st._y));
+        st._y = Math.max(-40, Math.min(pageH - 40, st._y));
       }else if(pts.size === 2){
         const [a,b] = [...pts.values()];
         const d = Math.hypot(a.x-b.x, a.y-b.y);
@@ -976,10 +1059,52 @@
     const up = e => { pts.delete(e.pointerId); if(pts.size < 2) st._pinch0 = null; };
     st.addEventListener('pointerup', up);
     st.addEventListener('pointercancel', up);
+  }
+
+  async function addSticker(cutoutURL){
+    const st = document.createElement('div');
+    st.className = 'sticker';
+    st.dataset.cutout = cutoutURL;
+    st.dataset.seq = ++stickerSeq;
+    st.style.zIndex = 20;
+    st._x = 90 + (stickerSeq % 3) * 60; st._y = 300 + (stickerSeq % 2) * 60; st._s = 1;
+    st.style.left = '0'; st.style.top = '0'; st.style.width = '45%';
+    const im = document.createElement('img'); st.appendChild(im); st._img = im;
+    const tag = document.createElement('div'); tag.className = 'num-tag';
+    tag.textContent = 'No.' + String(stickerSeq).padStart(2,'0');
+    tag.contentEditable = true;
+    tag.addEventListener('pointerdown', e => e.stopPropagation());  // 点编号进入编辑，不触发拖动
+    st.appendChild(tag);
+    const del = document.createElement('div'); del.className = 'del'; del.textContent = '×';
+    del.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      stickerHistory.push({ type:'del', st });
+      if(stickerHistory.length > 20) stickerHistory.shift();
+      st.remove(); renumberTags();
+    });
+    st.appendChild(del);
+    page.appendChild(st);
+    applyTransform(st);
+    renumberTags();
+    bindSticker(st);
+    stickerHistory.push({ type:'add', st });
+    if(stickerHistory.length > 20) stickerHistory.shift();
 
     selectSticker(st);
     await rebakeSticker(st);
   }
+
+  /* 置顶 / 置底 / 撤销 */
+  $('zTop').addEventListener('click', () => { if(activeSticker) activeSticker.style.zIndex = ++zTopN; });
+  $('zBottom').addEventListener('click', () => { if(activeSticker) activeSticker.style.zIndex = --zBottomN; });
+  $('btnUndo').addEventListener('click', () => {
+    const last = stickerHistory.pop();
+    if(!last){ setCut('没有可撤销的贴纸操作'); return; }
+    if(last.type === 'add'){ last.st.remove(); }
+    else { page.appendChild(last.st); applyTransform(last.st); }
+    renumberTags();
+    setCut('已撤销', 'ok');
+  });
   /* 选照片 → 抠图 → 生成贴纸（可连续添加多件单品） */
   let cutPickMode = false;
   $('btnCut').addEventListener('click', () => {
@@ -1046,12 +1171,14 @@
   document.getElementById('btnExport').addEventListener('click', ()=>{
     const btn = document.getElementById('btnExport');
     btn.textContent = '生成中…';
-    const prev = page.style.transform;
+    const prevT = page.style.transform, prevZ = page.style.zoom;
     page.style.transform = 'none';   // 导出时恢复原始尺寸，保证全分辨率
+    page.style.zoom = '100%';
     page.classList.add('exporting');
     if(typeof selectSticker === 'function') selectSticker(null);
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
-      page.style.transform = prev;
+      page.style.transform = prevT;
+      page.style.zoom = prevZ;
       page.classList.remove('exporting');
       btn.textContent = '↓ 导出 PNG（小红书 3:4）';
       cv.toBlob(async blob => {
@@ -1073,9 +1200,10 @@
         setTimeout(()=> btn.textContent = '↓ 导出 PNG（小红书 3:4）', 3000);
       }, 'image/png');
     }).catch(()=>{
-      page.style.transform = prev;
+      page.style.transform = prevT;
+      page.style.zoom = prevZ;
       page.classList.remove('exporting');
-      btn.textContent = '↓ 导出 PNG（小红书 3:4）';
+      btn.textContent = '↓ 导出 PNG';
     });
   });
 })();
