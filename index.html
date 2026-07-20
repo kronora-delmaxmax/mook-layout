@@ -127,8 +127,8 @@
   /* ===== 版式 D：贴纸图鉴版（白底自由摆） ===== */
   .layD{position:absolute;inset:0}
   .layD .head{position:absolute;top:10%;left:5.5%;right:5.5%;text-align:center;z-index:6}
-  .layD .title-h{font-size:32px;font-weight:900;letter-spacing:6px}
-  .layD .title-en{font-family:'Playfair Display',serif;font-style:italic;font-size:12px;
+  .layD .title-h{font-size:calc(32px * var(--tscale,1));font-weight:900;letter-spacing:6px}
+  .layD .title-en{font-family:'Playfair Display',serif;font-style:italic;font-size:calc(12px * var(--bscale,1));
     color:#8A8271;letter-spacing:3px;margin-top:6px}
   .layD .rule{width:60px;height:3px;background:var(--accent);margin:12px auto 0}
   .layD .hint{
@@ -157,7 +157,7 @@
     position:absolute;top:8%;right:5%;z-index:6;display:flex;gap:14px;align-items:flex-start;
   }
   .vA .title-v{
-    writing-mode:vertical-rl;font-size:44px;font-weight:900;letter-spacing:6px;line-height:1.1;
+    writing-mode:vertical-rl;font-size:calc(44px * var(--tscale,1));font-weight:900;letter-spacing:6px;line-height:1.1;
     background:var(--paper);padding:14px 8px;box-shadow:4px 4px 0 rgba(43,43,43,.12);
     max-height:55%;overflow:hidden;
   }
@@ -169,20 +169,20 @@
     position:absolute;top:66%;left:5.5%;right:5.5%;
     display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--hair);padding-bottom:10px;
   }
-  .vA .sub .no{font-family:'Playfair Display',serif;font-size:26px;color:var(--accent);font-weight:700}
-  .vA .sub .t{font-size:15px;font-weight:600;letter-spacing:2px}
+  .vA .sub .no{font-family:'Playfair Display',serif;font-size:calc(26px * var(--bscale,1));color:var(--accent);font-weight:700}
+  .vA .sub .t{font-size:calc(15px * var(--bscale,1));font-weight:600;letter-spacing:2px}
   .vA .caps{
     position:absolute;top:74%;left:5.5%;right:5.5%;bottom:5.5%;
     column-count:2;column-gap:28px;column-rule:1px solid var(--hair);
   }
-  .cap{font-size:11px;line-height:1.9;margin-bottom:10px;break-inside:avoid;text-align:justify}
+  .cap{font-size:calc(11px * var(--bscale,1));line-height:1.9;margin-bottom:10px;break-inside:avoid;text-align:justify}
   .cap b{color:var(--accent);font-family:'Playfair Display',serif;margin-right:6px}
 
   /* ===== 版式 B：双图版 ===== */
   .vB .head{position:absolute;top:10%;left:5.5%;right:5.5%;z-index:6}
-  .vB .title-h{font-size:34px;font-weight:900;letter-spacing:3px;line-height:1.25}
+  .vB .title-h{font-size:calc(34px * var(--tscale,1));font-weight:900;letter-spacing:3px;line-height:1.25}
   .vB .title-en{
-    font-family:'Playfair Display',serif;font-style:italic;font-size:13px;color:#8A8271;
+    font-family:'Playfair Display',serif;font-style:italic;font-size:calc(13px * var(--bscale,1));color:#8A8271;
     letter-spacing:2px;margin-top:6px;
   }
   .vB .hero{position:absolute;top:24%;left:5.5%;right:5.5%;height:34%}
@@ -195,8 +195,8 @@
 
   /* ===== 版式 C：图鉴版 ===== */
   .vC .head{position:absolute;top:10%;left:5.5%;right:5.5%;text-align:center;z-index:6}
-  .vC .title-h{font-size:32px;font-weight:900;letter-spacing:6px}
-  .vC .title-en{font-family:'Playfair Display',serif;font-style:italic;font-size:12px;
+  .vC .title-h{font-size:calc(32px * var(--tscale,1));font-weight:900;letter-spacing:6px}
+  .vC .title-en{font-family:'Playfair Display',serif;font-style:italic;font-size:calc(12px * var(--bscale,1));
     color:#8A8271;letter-spacing:3px;margin-top:6px}
   .vC .rule{width:60px;height:3px;background:var(--accent);margin:12px auto 0}
   .vC .grid{
@@ -230,6 +230,20 @@
       <button data-v="vB">双图版</button>
       <button data-v="vC">图鉴版</button>
       <button data-v="vD">贴纸版</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>字号 TYPE SIZE</label>
+    <div class="stroke-row" style="margin-bottom:6px">
+      <span style="font-size:11px;width:30px">标题</span>
+      <input type="range" id="tScale" min="0.6" max="1.4" step="0.05" value="1">
+      <span id="tScaleVal" style="font-size:11px;width:36px">100%</span>
+    </div>
+    <div class="stroke-row">
+      <span style="font-size:11px;width:30px">正文</span>
+      <input type="range" id="bScale" min="0.8" max="1.3" step="0.05" value="1">
+      <span id="bScaleVal" style="font-size:11px;width:36px">100%</span>
     </div>
   </div>
 
@@ -442,6 +456,16 @@
     pageH = +e.target.value;
     page.style.height = pageH + 'px';
     fitPage();
+  });
+
+  /* 字号调节 */
+  document.getElementById('tScale').addEventListener('input', e => {
+    page.style.setProperty('--tscale', e.target.value);
+    document.getElementById('tScaleVal').textContent = Math.round(e.target.value*100) + '%';
+  });
+  document.getElementById('bScale').addEventListener('input', e => {
+    page.style.setProperty('--bscale', e.target.value);
+    document.getElementById('bScaleVal').textContent = Math.round(e.target.value*100) + '%';
   });
 
   /* ---- 版式切换 ---- */
