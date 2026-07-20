@@ -102,6 +102,24 @@
     font-family:'Playfair Display',serif;font-size:11px;letter-spacing:3px;color:#8A8271;z-index:5;
   }
 
+  /* ===== 蒙版编辑器 ===== */
+  #maskModal{
+    position:fixed;inset:0;z-index:100;background:rgba(30,26,20,.88);
+    display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  }
+  #maskModal .mm-title{color:#FAF7F0;font-size:13px;letter-spacing:2px}
+  #maskView{max-width:88vw;max-height:58vh;background:
+    repeating-conic-gradient(#3a352c 0 25%, #2c2820 0 50%) 0 0/20px 20px;
+    border-radius:4px;touch-action:none;cursor:crosshair}
+  .mm-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .mm-tools button{
+    padding:9px 16px;font-size:13px;border:1px solid #8A8271;background:transparent;
+    color:#FAF7F0;border-radius:3px;cursor:pointer;font-family:inherit;
+  }
+  .mm-tools button.on{background:#E85D3D;border-color:#E85D3D}
+  .mm-tools input[type=range]{width:110px;accent-color:#E85D3D}
+  .mm-tools .mm-ok{background:#E85D3D;border-color:#E85D3D}
+
   /* ===== 抠图贴纸层 ===== */
   .sticker{
     position:absolute;z-index:20;cursor:grab;touch-action:none;user-select:none;
@@ -417,6 +435,20 @@
 </main>
 
 <input type="file" id="fileIn" accept="image/*" style="display:none">
+
+<!-- 蒙版微调编辑器：AI 初版蒙版 + 手指涂抹修正 -->
+<div id="maskModal">
+  <div class="mm-title">蒙版微调 — 涂抹修正抠图边缘</div>
+  <canvas id="maskView"></canvas>
+  <div class="mm-tools">
+    <button id="mmErase" class="on">✕ 擦除</button>
+    <button id="mmRestore">✓ 恢复</button>
+    <input type="range" id="mmBrush" min="10" max="80" value="36">
+    <button id="mmUndo">↩ 撤销</button>
+    <button id="mmCancel">取消</button>
+    <button id="mmOk" class="mm-ok">完成 ✓</button>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -982,7 +1014,8 @@
     rmbgProc = await T.AutoProcessor.from_pretrained('briaai/RMBG-1.4');
     rmbgT = T;
   }
-  async function cutout(imgEl){
+  /* AI 推理出初版蒙版：返回原图画布 + 灰度蒙版画布（白=保留，黑=去除） */
+  async function cutoutMask(imgEl){
     await loadRMBG();
     const T = rmbgT;
     const small = await downscale(imgEl, 1024);
@@ -993,18 +1026,30 @@
     let t = output[0][0];
     if(t.dims.length === 2) t = t.unsqueeze(0);
     t = t.mul(255).to('uint8');
-    let mask = T.RawImage.fromTensor(t);
-    if(mask.width !== image.width || mask.height !== image.height)
-      mask = await mask.resize(image.width, image.height);
-    // 合成透明背景 PNG
-    const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+    let maskImg = T.RawImage.fromTensor(t);
+    if(maskImg.width !== image.width || maskImg.height !== image.height)
+      maskImg = await maskImg.resize(image.width, image.height);
+    const photo = image.toCanvas();
+    // 蒙版画布：黑底，alpha 通道承载抠图遮罩（destination-in 只认 alpha）
+    const mask = document.createElement('canvas');
+    mask.width = image.width; mask.height = image.height;
+    const mctx = mask.getContext('2d');
+    const midata = mctx.createImageData(mask.width, mask.height);
+    const md = maskImg.data;
+    for(let i = 0; i < md.length; i++) midata.data[i*4+3] = md[i];
+    mctx.putImageData(midata, 0, 0);
+    return { photo, mask };
+  }
+  /* 按蒙版合成透明 PNG */
+  function composite(photo, mask){
+    const c = document.createElement('canvas');
+    c.width = photo.width; c.height = photo.height;
     const ctx = c.getContext('2d');
-    ctx.drawImage(image.toCanvas(), 0, 0);
-    const idata = ctx.getImageData(0, 0, c.width, c.height);
-    const md = mask.data;
-    for(let i = 0; i < md.length; i++) idata.data[i*4+3] = md[i];
-    ctx.putImageData(idata, 0, 0);
-    return c.toDataURL('image/png');
+    ctx.drawImage(photo, 0, 0);
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(mask, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    return c;
   }
 
   /* 把描边直接烘进贴纸 PNG（导出时不会丢失） */
@@ -1132,6 +1177,87 @@
     renumberTags();
     setCut('已撤销', 'ok');
   });
+  /* 蒙版微调编辑器：返回 Promise<编辑后的蒙版画布 | null(取消)> */
+  function openMaskEditor(photo, mask){
+    return new Promise(resolve => {
+      const modal = $('maskModal'), view = $('maskView');
+      const W = mask.width, H = mask.height;
+      // 编辑副本 + 撤销栈
+      const editMask = document.createElement('canvas');
+      editMask.width = W; editMask.height = H;
+      const em = editMask.getContext('2d');
+      em.drawImage(mask, 0, 0);
+      const undoStack = [];
+      const pushUndo = () => {
+        undoStack.push(em.getImageData(0, 0, W, H));
+        if(undoStack.length > 12) undoStack.shift();
+      };
+      // 预览画布尺寸：按屏幕限制等比缩放
+      const maxW = Math.min(innerWidth * .88, 520), maxH = innerHeight * .58;
+      const scale = Math.min(maxW / W, maxH / H, 1);
+      view.width = Math.round(W * scale); view.height = Math.round(H * scale);
+      const vctx = view.getContext('2d');
+      // 复用合成画布，避免每笔画新建
+      const comp = document.createElement('canvas');
+      comp.width = W; comp.height = H;
+      const cctx = comp.getContext('2d');
+      const redraw = () => {
+        cctx.globalCompositeOperation = 'source-over';
+        cctx.clearRect(0, 0, W, H);
+        cctx.drawImage(photo, 0, 0);
+        cctx.globalCompositeOperation = 'destination-in';
+        cctx.drawImage(editMask, 0, 0);
+        vctx.clearRect(0, 0, view.width, view.height);
+        vctx.drawImage(comp, 0, 0, view.width, view.height);
+      };
+      // 涂抹：白=恢复，黑=擦除，圆头笔
+      let mode = 'erase', drawing = false, last = null;
+      const setMode = m => {
+        mode = m;
+        $('mmErase').classList.toggle('on', m === 'erase');
+        $('mmRestore').classList.toggle('on', m === 'restore');
+      };
+      $('mmErase').onclick = () => setMode('erase');
+      $('mmRestore').onclick = () => setMode('restore');
+      const toMaskXY = e => {
+        const r = view.getBoundingClientRect();
+        return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+      };
+      const dab = (p, q) => {
+        // 蒙版 alpha 承载遮罩：擦除=destination-out 减 alpha，恢复=source-over 画不透明
+        em.globalCompositeOperation = mode === 'erase' ? 'destination-out' : 'source-over';
+        em.strokeStyle = '#000';
+        em.lineWidth = +$('mmBrush').value / scale;
+        em.lineCap = em.lineJoin = 'round';
+        em.beginPath(); em.moveTo(p.x, p.y); em.lineTo(q.x, q.y); em.stroke();
+        em.globalCompositeOperation = 'source-over';
+        redraw();
+      };
+      view.onpointerdown = e => {
+        e.preventDefault();
+        try{ view.setPointerCapture(e.pointerId); }catch(_){}
+        pushUndo(); drawing = true; last = toMaskXY(e); dab(last, last);
+      };
+      view.onpointermove = e => {
+        if(!drawing) return; e.preventDefault();
+        const p = toMaskXY(e); dab(last, p); last = p;
+      };
+      view.onpointerup = view.onpointercancel = () => { drawing = false; };
+      $('mmUndo').onclick = () => {
+        const prev = undoStack.pop();
+        if(prev){ em.putImageData(prev, 0, 0); redraw(); }
+      };
+      const close = ret => {
+        modal.style.display = 'none';
+        view.onpointerdown = view.onpointermove = view.onpointerup = view.onpointercancel = null;
+        resolve(ret);
+      };
+      $('mmOk').onclick = () => close(editMask);
+      $('mmCancel').onclick = () => close(null);
+      setMode('erase'); redraw();
+      modal.style.display = 'flex';
+    });
+  }
   /* 选照片 → 抠图 → 生成贴纸（可连续添加多件单品） */
   let cutPickMode = false;
   $('btnCut').addEventListener('click', () => {
@@ -1146,7 +1272,12 @@
       img.onload = async () => {
         const btn = $('btnCut'); btn.disabled = true;
         try{
-          const cut = await cutout(img);
+          const { photo, mask } = await cutoutMask(img);
+          setCut('AI 初版完成，请涂抹微调边缘…','ok');
+          const finalMask = await openMaskEditor(photo, mask);
+          if(!finalMask){ setCut('已取消本次抠图'); return; }
+          setCut('正在生成贴纸…');
+          const cut = composite(photo, finalMask).toDataURL('image/png');
           await addSticker(cut);
           setCut('抠图完成！继续添加可再点按钮；拖动移动、双指缩放','ok');
         }catch(err){
