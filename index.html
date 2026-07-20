@@ -12,6 +12,7 @@
     --paper:#FAF7F0; --ink:#2B2B2B; --accent:#E85D3D; --hair:#C9C2B4;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   html,body{height:100%}
   body{
     font-family:'Noto Serif SC',"Songti SC",serif;background:#E9E4D8;color:var(--ink);
@@ -419,8 +420,10 @@
     const availH = window.innerWidth <= 820 ? Infinity : stage.clientHeight - pad;
     const s = Math.min(availW/600, availH/pageH, 1);
     page._scale = s;   // 手势换算用
-    // 优先用 zoom：iOS 在 zoom 容器内编辑文字光标不错位；不支持 zoom 的浏览器退回 transform
-    if('zoom' in document.body.style){
+    // iOS 的 zoom 文字渲染有 bug（布局缩小文字不缩，导致重叠），iOS 用 transform；其余优先 zoom（光标更稳）
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+                  (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+    if(!isIOS && 'zoom' in document.body.style){
       page.style.transform = '';
       page.style.zoom = s;
     }else{
