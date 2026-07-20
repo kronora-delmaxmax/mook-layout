@@ -1466,9 +1466,29 @@
     page.style.zoom = '100%';
     page.classList.add('exporting');
     if(typeof selectSticker === 'function') selectSticker(null);
+    // html2canvas 不支持 object-fit:cover（会把照片拉伸变形），
+    // 导出前把 cover 换算成显式尺寸+位移，overflow 裁剪，导完恢复
+    const fitted = [];
+    document.querySelectorAll('.photo.filled img').forEach(img => {
+      const W = img.clientWidth, H = img.clientHeight;
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if(!nw || !nh || !W || !H) return;
+      const s = Math.max(W/nw, H/nh);
+      const w2 = nw*s, h2 = nh*s;
+      fitted.push([img, img.style.cssText]);
+      img.style.position = 'absolute';
+      img.style.left = (img.offsetLeft + (W - w2)/2) + 'px';
+      img.style.top = (img.offsetTop + (H - h2)/2) + 'px';
+      img.style.width = w2 + 'px';
+      img.style.height = h2 + 'px';
+      img.style.maxWidth = 'none';
+      img.style.objectFit = 'fill';   // w2×h2 与原图同比例，fill 不变形
+    });
+    const restoreFit = () => fitted.forEach(([img, css]) => img.style.cssText = css);
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
       page.style.transform = prevT;
       page.style.zoom = prevZ;
+      restoreFit();
       page.classList.remove('exporting');
       btn.textContent = '↓ 导出 PNG（小红书 3:4）';
       cv.toBlob(async blob => {
@@ -1492,6 +1512,7 @@
     }).catch(()=>{
       page.style.transform = prevT;
       page.style.zoom = prevZ;
+      restoreFit();
       page.classList.remove('exporting');
       btn.textContent = '↓ 导出 PNG';
     });
