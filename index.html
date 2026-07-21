@@ -206,6 +206,44 @@
   /* 导出时隐藏编辑痕迹 */
   .exporting .sticker{outline:none!important}
   .exporting .sticker .del,.exporting .sticker .reedit{display:none!important}
+  /* ===== 手写便签 ===== */
+  @font-face{
+    font-family:'Caveat';font-style:normal;font-weight:500;font-display:swap;
+    src:url('vendor/caveat-latin.woff2') format('woff2');
+  }
+  .note{
+    position:absolute;z-index:25;max-width:46%;padding:4px 10px;
+    font-family:'Caveat','Kaiti SC','STKaiti','KaiTi',cursive;
+    font-size:calc(27px * var(--bscale,1));line-height:1.3;color:#3B4A6B;
+    transform:rotate(-2deg);cursor:grab;touch-action:none;outline:none;
+  }
+  .note .ndel{
+    position:absolute;top:-11px;right:-11px;width:30px;height:30px;padding:6px;
+    background-clip:content-box;border-radius:50%;background-color:#2B2B2B;color:#fff;
+    font-size:12px;line-height:18px;text-align:center;cursor:pointer;display:none;z-index:3;
+  }
+  .note:hover .ndel{display:block}
+  .exporting .note .ndel{display:none!important}
+  /* ===== 引出线标注 ===== */
+  #leadSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:24}
+  #leadSvg line{stroke:#E85D3D;stroke-width:1.5}
+  .lead-dot{
+    position:absolute;z-index:26;width:20px;height:20px;border-radius:50%;
+    background:#E85D3D;color:#fff;font-size:11px;line-height:20px;text-align:center;
+    box-shadow:0 0 0 3px rgba(232,93,61,.28);pointer-events:none;
+  }
+  .lead-label{
+    position:absolute;z-index:26;max-width:38%;font-size:12px;letter-spacing:1px;
+    background:rgba(250,247,240,.94);padding:3px 8px;border-radius:2px;
+    cursor:grab;touch-action:none;outline:none;box-shadow:0 1px 4px rgba(60,50,30,.2);
+  }
+  .lead-label .ndel{
+    position:absolute;top:-11px;right:-11px;width:30px;height:30px;padding:6px;
+    background-clip:content-box;border-radius:50%;background-color:#2B2B2B;color:#fff;
+    font-size:12px;line-height:18px;text-align:center;cursor:pointer;display:none;z-index:3;
+  }
+  .lead-label:hover .ndel{display:block}
+  .exporting .lead-label .ndel{display:none!important}
   /* 拖拽对齐参考线 */
   #guideV,#guideH{position:absolute;z-index:40;pointer-events:none;display:none}
   #guideV{top:0;bottom:0;width:0;border-left:1.5px dashed #E85D3D}
@@ -219,6 +257,25 @@
   .sticker .num-tag::after{content:"";display:block;width:16px;height:1px;background:var(--hair);margin-top:3px}
 
   /* ===== 版式 D：贴纸图鉴版（白底自由摆） ===== */
+  /* ===== 版式 E：全出血大图 ===== */
+  .layE{position:absolute;inset:0}
+  .layE .photo{position:absolute;inset:0;width:100%;height:100%;background:#DDD5C4}
+  .layE .bleed-scrim{
+    position:absolute;left:0;right:0;bottom:0;height:46%;z-index:3;pointer-events:none;
+    background:linear-gradient(rgba(20,16,10,0), rgba(20,16,10,.62));
+  }
+  .layE .bleed-cap{position:absolute;left:6%;right:8%;bottom:6.5%;z-index:4;color:#fff}
+  .layE .en-cap{font:600 calc(12px * var(--bscale,1)) var(--en);letter-spacing:5px;color:#F2E9D8}
+  .layE h1{font-size:calc(42px * var(--tscale,1));font-weight:900;letter-spacing:3px;margin:8px 0 10px;
+    text-shadow:0 2px 14px rgba(0,0,0,.45)}
+  .layE .lead{font-size:calc(14px * var(--bscale,1));letter-spacing:2px;
+    text-shadow:0 1px 8px rgba(0,0,0,.45)}
+  /* 全出血下刊头/页码反白、刊头去底色 */
+  .vE .masthead{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5);
+    background:transparent;border-bottom-color:rgba(255,255,255,.55)}
+  .vE .masthead .en{color:rgba(255,255,255,.85)}
+  .vE .folio{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+
   .layD{position:absolute;inset:0}
   .layD .head{position:absolute;top:10%;left:5.5%;right:5.5%;text-align:center;z-index:6}
   .layD .title-h{font-size:calc(32px * var(--tscale,1));font-weight:900;letter-spacing:6px}
@@ -244,6 +301,17 @@
     color:#FAF7F0;font-size:15px;cursor:pointer;font-family:inherit;touch-action:manipulation;
   }
   .exporting .ph-tools{display:none!important}
+  /* ===== 拼贴感：照片小倾角 + 美纹纸胶带 ===== */
+  .photo.tilt{box-shadow:0 3px 10px rgba(60,50,30,.18)}
+  .photo.tape::before,.photo.tape::after{
+    content:'';position:absolute;z-index:7;width:84px;height:22px;top:8px;
+    background:linear-gradient(100deg, rgba(238,228,186,.88), rgba(226,214,168,.78));
+    box-shadow:0 1px 2px rgba(60,50,30,.18);
+  }
+  .photo.tape::before{left:12%;transform:rotate(-5deg)}
+  .photo.tape::after{right:12%;transform:rotate(6deg)}
+  /* 圆形裁切 */
+  .photo.round{border-radius:50%}
   .photo img{width:100%;height:100%;object-fit:cover;display:block}
   .photo .ph{
     position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;
@@ -331,6 +399,7 @@
       <button data-v="vB">双图版</button>
       <button data-v="vC">图鉴版</button>
       <button data-v="vD">贴纸版</button>
+      <button data-v="vE">全出血</button>
     </div>
   </div>
 
@@ -394,6 +463,18 @@
       <div class="sw" data-c="#E85D3D" style="background:#E85D3D"></div>
       <div class="sw" data-c="#2E4A6B" style="background:#2E4A6B"></div>
       <div class="sw" data-c="#6B7F5E" style="background:#6B7F5E"></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>拼贴装饰 DECOR</label>
+    <div class="seg" style="margin-bottom:8px">
+      <button id="btnCollage">胶带拼贴 OFF</button>
+      <button id="btnReshuffle">🎲 换角度</button>
+    </div>
+    <div class="seg">
+      <button id="btnNote">✎ 加便签</button>
+      <button id="btnLead">⌖ 加标注</button>
     </div>
   </div>
 
@@ -537,7 +618,19 @@
       <div class="foot-note" contenteditable data-k="footD">—— 每件单品都有它的来处和故事 ——</div>
     </div>
 
+    <!-- 版式 E：全出血大图 + 反白标题 -->
+    <div class="lay layE" style="display:none">
+      <div class="photo bleed"><div class="ph">点击放入主图</div><img alt=""></div>
+      <div class="bleed-scrim"></div>
+      <div class="bleed-cap">
+        <div class="en-cap" contenteditable data-k="en">SLOW MORNING</div>
+        <h1 contenteditable data-k="title">七日町的早餐散步</h1>
+        <div class="lead" contenteditable data-k="lead">清晨七点的香气，是这座城市醒来的信号。</div>
+      </div>
+    </div>
+
     <div class="folio" contenteditable>— 01 —</div>
+    <svg id="leadSvg"></svg>
     <div id="guideV"></div>
     <div id="guideH"></div>
   </div>
@@ -633,7 +726,7 @@
   });
 
   /* ---- 版式切换 ---- */
-  const lays = { vA:'.layA', vB:'.layB', vC:'.layC', vD:'.layD' };
+  const lays = { vA:'.layA', vB:'.layB', vC:'.layC', vD:'.layD', vE:'.layE' };
   document.getElementById('segVariant').addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return;
     document.querySelectorAll('#segVariant button').forEach(x=>x.classList.toggle('on',x===b));
@@ -725,13 +818,20 @@
     const tools = document.createElement('div');
     tools.className = 'ph-tools';
     tools.innerHTML = '<button type="button" data-t="rot" title="旋转90°">⟳</button>' +
-                      '<button type="button" data-t="flip" title="左右翻转">⇋</button>';
+                      '<button type="button" data-t="flip" title="左右翻转">⇋</button>' +
+                      '<button type="button" data-t="shape" title="圆形裁切">◯</button>';
     tools.addEventListener('pointerdown', e => e.stopPropagation());   // 不触发拖动/换图
     tools.addEventListener('click', async e => {
       const b = e.target.closest('button'); if(!b) return;
       e.stopPropagation();
       const img = p.querySelector('img');
       if(!p.classList.contains('filled') || !img.src) return;
+      if(b.dataset.t === 'shape'){
+        p.classList.toggle('round');
+        saveDraft();
+        showToast(p.classList.contains('round') ? '已切为圆形裁切' : '已恢复矩形裁切');
+        return;
+      }
       b.disabled = true;
       try{
         const rot = b.dataset.t === 'rot';
@@ -835,6 +935,135 @@
     return c.toDataURL('image/jpeg', .92);
   }
 
+  /* ---- 拼贴感：照片随机小倾角 + 美纹纸胶带 ---- */
+  let collageOn = false;
+  function applyCollage(reshuffle){
+    document.querySelectorAll('.photo').forEach(p => {
+      if(p.closest('.layE')) return;   // 全出血照片倾斜会露白角，不参与拼贴
+      if(collageOn){
+        if(p._tilt == null || reshuffle) p._tilt = +(Math.random() * 5 - 2.5).toFixed(1);
+        p.classList.add('tilt', 'tape');
+        p.style.transform = 'rotate(' + p._tilt + 'deg)';
+      }else{
+        p.classList.remove('tilt', 'tape');
+        p.style.transform = '';
+      }
+    });
+  }
+  $('btnCollage').addEventListener('click', () => {
+    collageOn = !collageOn;
+    $('btnCollage').textContent = '胶带拼贴 ' + (collageOn ? 'ON' : 'OFF');
+    $('btnCollage').classList.toggle('on', collageOn);
+    applyCollage(false);
+    saveDraft();
+    showToast(collageOn ? '拼贴感已开启：照片带小倾角+胶带' : '拼贴感已关闭');
+  });
+  $('btnReshuffle').addEventListener('click', () => {
+    if(!collageOn){ showToast('先开启「胶带拼贴」'); return; }
+    applyCollage(true);
+    saveDraft();
+  });
+
+  /* ---- 便签/标注标签的通用拖拽：点按编辑、拖动位移 ---- */
+  function makeDraggable(el, opts){
+    let sx = null, sy, ox, oy, dragging = false;
+    el.addEventListener('pointerdown', e => {
+      if(e.target.classList.contains('ndel')) return;
+      try{ el.setPointerCapture(e.pointerId); }catch(_){}
+      sx = e.clientX; sy = e.clientY;
+      ox = parseFloat(el.style.left); oy = parseFloat(el.style.top);
+      dragging = false;
+      e.stopPropagation();
+    });
+    el.addEventListener('pointermove', e => {
+      if(sx == null) return;
+      const ps = page._scale || 1;
+      const dx = (e.clientX - sx)/ps, dy = (e.clientY - sy)/ps;
+      if(!dragging && Math.abs(dx) + Math.abs(dy) > 8){ dragging = true; el.blur(); }
+      if(dragging){
+        el.style.left = Math.max(-40, Math.min(560, ox + dx)) + 'px';
+        el.style.top = Math.max(-10, Math.min(pageH - 30, oy + dy)) + 'px';
+        if(opts && opts.onMove) opts.onMove();
+      }
+    });
+    const up = () => { if(dragging){ saveDraft(); if(opts && opts.onMove) opts.onMove(); } sx = null; };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  }
+  /* 元素自身文本（不含内部删除钮的 ×） */
+  function ownText(el){
+    let t = '';
+    el.childNodes.forEach(n => { if(n.nodeType === 3) t += n.textContent; });
+    return t.trim();
+  }
+
+  /* ---- 手写便签 ---- */
+  function addNote(text, x, y){
+    const n = document.createElement('div');
+    n.className = 'note'; n.contentEditable = true; n.textContent = text || '写点备注…';
+    n.style.left = (x == null ? 60 : x) + 'px';
+    n.style.top = (y == null ? 480 : y) + 'px';
+    const del = document.createElement('span');
+    del.className = 'ndel'; del.textContent = '×'; del.contentEditable = false;
+    del.addEventListener('pointerdown', e => { e.stopPropagation(); n.remove(); saveDraft(); });
+    n.appendChild(del);
+    makeDraggable(n);
+    n.addEventListener('input', saveDraft);
+    page.appendChild(n);
+    return n;
+  }
+  $('btnNote').addEventListener('click', () => {
+    addNote(); saveDraft();
+    showToast('便签已加入：拖动摆放，点按改字');
+  });
+
+  /* ---- 引出线标注：点照片定锚点 → 标签可拖可改字，连线自动跟随 ---- */
+  let leadSeq = 0, pickingLead = false;
+  const leadSvg = $('leadSvg');
+  function addLead(ax, ay, lx, ly, text, num){
+    leadSeq = num || (leadSeq + 1);
+    const dot = document.createElement('div');
+    dot.className = 'lead-dot'; dot.textContent = leadSeq;
+    dot.style.left = (ax - 10) + 'px'; dot.style.top = (ay - 10) + 'px';
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const lab = document.createElement('div');
+    lab.className = 'lead-label'; lab.contentEditable = true;
+    lab.textContent = text || '标注';
+    lab.style.left = lx + 'px'; lab.style.top = ly + 'px';
+    const del = document.createElement('span');
+    del.className = 'ndel'; del.textContent = '×'; del.contentEditable = false;
+    del.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      dot.remove(); line.remove(); lab.remove(); saveDraft();
+    });
+    lab.appendChild(del);
+    const redraw = () => {
+      line.setAttribute('x1', ax); line.setAttribute('y1', ay);
+      line.setAttribute('x2', parseFloat(lab.style.left));
+      line.setAttribute('y2', parseFloat(lab.style.top) + lab.offsetHeight / 2);
+    };
+    makeDraggable(lab, { onMove: redraw });
+    lab.addEventListener('input', saveDraft);
+    page.appendChild(dot); leadSvg.appendChild(line); page.appendChild(lab);
+    lab._ax = ax; lab._ay = ay;
+    redraw();
+    return lab;
+  }
+  $('btnLead').addEventListener('click', () => {
+    pickingLead = true;
+    showToast('点一下照片上要标注的位置');
+  });
+  page.addEventListener('pointerdown', e => {
+    if(!pickingLead) return;
+    e.stopPropagation(); e.preventDefault();
+    pickingLead = false;
+    const r = page.getBoundingClientRect();
+    const ax = (e.clientX - r.left) / r.width * 600;
+    const ay = (e.clientY - r.top) / r.height * pageH;
+    addLead(ax, ay, Math.min(520, ax + 50), Math.max(20, ay - 70));
+    saveDraft();
+  }, true);
+
   // 恢复本地保存的配置（默认免Key档；仅当存了Key才恢复对应服务商档位）
   try{
     const saved = JSON.parse(localStorage.getItem('mook-ai')||'{}');
@@ -874,8 +1103,8 @@
   }
 
   /* 手机端底部主操作栏 */
-  const vOrder = ['vA','vB','vC','vD'];
-  const vNames = { vA:'单图版', vB:'双图版', vC:'图鉴版', vD:'贴纸版' };
+  const vOrder = ['vA','vB','vC','vD','vE'];
+  const vNames = { vA:'单图版', vB:'双图版', vC:'图鉴版', vD:'贴纸版', vE:'全出血' };
   $('mBar').addEventListener('click', e => {
     const b = e.target.closest('button'); if(!b) return;
     const act = b.dataset.act;
@@ -1761,10 +1990,18 @@
       texts,
       mast: [...document.querySelectorAll('.masthead span')].map(s => s.textContent),
       folio: document.querySelector('.folio').textContent,
+      collage: collageOn,
       photos: [...document.querySelectorAll('.photo')].map(p => {
         if(!p.classList.contains('filled')) return null;
-        return { src: shrinkForDraft(p.querySelector('img')), pz: p._pz||1, px: p._px||0, py: p._py||0 };
+        return { src: shrinkForDraft(p.querySelector('img')), pz: p._pz||1, px: p._px||0, py: p._py||0,
+                 tilt: p._tilt ?? null, round: p.classList.contains('round') };
       }),
+      notes: [...page.querySelectorAll('.note')].map(n => ({
+        t: ownText(n), x: parseFloat(n.style.left), y: parseFloat(n.style.top),
+      })),
+      leads: [...page.querySelectorAll('.lead-label')].map(l => ({
+        ax: l._ax, ay: l._ay, x: parseFloat(l.style.left), y: parseFloat(l.style.top), t: ownText(l),
+      })),
       stickers: level === 0 ? [] : [...document.querySelectorAll('.sticker')].map(st => ({
         cut: st.dataset.cutout,
         x: st._x, y: st._y, s: st._s, z: st.style.zIndex,
@@ -1823,6 +2060,8 @@
         p._origSrc = pd.src;   // 草稿里的照片未经烘焙，可作调色基准
         p.classList.add('filled');
         p._pz = pd.pz || 1; p._px = pd.px || 0; p._py = pd.py || 0;
+        p._tilt = pd.tilt ?? null;
+        p.classList.toggle('round', !!pd.round);
         if(p._pz !== 1 || p._px || p._py){
           img.style.transformOrigin = 'center';
           img.style.transform = 'translate(' + p._px + 'px,' + p._py + 'px) scale(' + p._pz + ')';
@@ -1838,6 +2077,9 @@
         applyTransform(st);
       }
       stickerSeq = Math.max(stickerSeq, d.stickerSeq || 0);
+      (d.notes || []).forEach(n => addNote(n.t, n.x, n.y));
+      (d.leads || []).forEach((l, i) => addLead(l.ax, l.ay, l.x, l.y, l.t, i + 1));
+      if(d.collage && !collageOn) $('btnCollage').click();   // 拼贴开关恢复（角度用存档的 _tilt）
       applyStroke(false);
       previewFilter();
       renumberTags();
