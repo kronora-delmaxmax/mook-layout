@@ -126,9 +126,9 @@
       order:2;width:100%;height:auto;border-right:none;border-top:1px solid #D8D1C0;
       padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px;overflow:visible;
     }
-    .brand{grid-column:1/-1}
-    .tip{grid-column:1/-1}
-    .group-wide{grid-column:1/-1}   /* 纸张组独占整行，不被半栏挤压 */
+    /* 手机端所有功能组通栏整行：半栏太挤，内容（按钮/下拉）易溢出 */
+    .panel>*{grid-column:1/-1}
+    .panel{grid-template-columns:1fr}
     #segPaper button{font-size:11px;padding:8px 2px}
     .btn{padding:13px;font-size:14px}
     /* 面板元素被脚本滚动定位时，自动避开吸顶预览区 */
