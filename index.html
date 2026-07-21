@@ -31,6 +31,8 @@
   .group label{display:block;font-size:12px;font-weight:600;letter-spacing:1px;
     color:#8A8271;margin-bottom:8px}
   .seg{display:flex;gap:6px}
+  /* 纸张组六个按钮：固定 3×2 网格，窄列不溢出 */
+  #segPaper{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .seg button{
     flex:1;padding:8px 4px;font-size:12px;border:1px solid #C9C2B4;background:#FBF9F3;
     cursor:pointer;font-family:inherit;border-radius:3px;transition:.15s;
