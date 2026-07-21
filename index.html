@@ -33,6 +33,7 @@
   .seg{display:flex;gap:6px}
   /* 纸张组六个按钮：固定 3×2 网格，窄列不溢出 */
   #segPaper{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  #segPaper button{min-width:0}   /* 允许收缩到内容宽度以下 */
   .seg button{
     flex:1;padding:8px 4px;font-size:12px;border:1px solid #C9C2B4;background:#FBF9F3;
     cursor:pointer;font-family:inherit;border-radius:3px;transition:.15s;
@@ -127,6 +128,8 @@
     }
     .brand{grid-column:1/-1}
     .tip{grid-column:1/-1}
+    .group-wide{grid-column:1/-1}   /* 纸张组独占整行，不被半栏挤压 */
+    #segPaper button{font-size:11px;padding:8px 2px}
     .btn{padding:13px;font-size:14px}
     /* 面板元素被脚本滚动定位时，自动避开吸顶预览区 */
     .panel>*{scroll-margin-top:54vh}
@@ -331,9 +334,9 @@
     </div>
   </div>
 
-  <div class="group">
+  <div class="group group-wide">
     <label>纸张 PAPER</label>
-    <div class="seg" id="segPaper" style="flex-wrap:wrap">
+    <div class="seg" id="segPaper">
       <button data-p="" class="on">杂志白</button>
       <button data-p="paper-cream">道林纸</button>
       <button data-p="paper-kraft">牛皮纸</button>
