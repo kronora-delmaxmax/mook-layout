@@ -78,6 +78,30 @@
     width:600px;height:800px;background:var(--paper);position:relative;
     overflow:hidden;transform-origin:top left;
   }
+  /* ===== 纸张质感（纯 CSS 纹理，导出引擎可渲染） ===== */
+  .page.paper-cream{background:#F3EAD6}   /* 道林纸：暖米 */
+  .page.paper-kraft{                       /* 牛皮纸：粗粝暖棕 + 细横纹 */
+    background-color:#DCC7A0;
+    background-image:repeating-linear-gradient(0deg,
+      rgba(120,90,50,.05) 0 2px, transparent 2px 5px);
+  }
+  .page.paper-grid{                        /* 方格手帐 */
+    background-color:#FBF8F1;
+    background-image:
+      linear-gradient(rgba(90,80,60,.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(90,80,60,.10) 1px, transparent 1px);
+    background-size:26px 26px;
+  }
+  .page.paper-line{                        /* 横线日记 */
+    background-color:#FBF8F1;
+    background-image:linear-gradient(rgba(90,80,60,.13) 1px, transparent 1px);
+    background-size:100% 30px;
+  }
+  .page.paper-dot{                         /* 点阵笔记 */
+    background-color:#FBF8F1;
+    background-image:radial-gradient(rgba(90,80,60,.28) 1.3px, transparent 1.3px);
+    background-size:22px 22px;
+  }
 
   /* ===== 手机端适配（≤820px）===== */
   #mBar{display:none}
@@ -302,6 +326,18 @@
       <button data-v="vB">双图版</button>
       <button data-v="vC">图鉴版</button>
       <button data-v="vD">贴纸版</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <label>纸张 PAPER</label>
+    <div class="seg" id="segPaper" style="flex-wrap:wrap">
+      <button data-p="" class="on">杂志白</button>
+      <button data-p="paper-cream">道林纸</button>
+      <button data-p="paper-kraft">牛皮纸</button>
+      <button data-p="paper-grid">方格</button>
+      <button data-p="paper-line">横线</button>
+      <button data-p="paper-dot">点阵</button>
     </div>
   </div>
 
@@ -597,10 +633,21 @@
     const b = e.target.closest('button'); if(!b) return;
     document.querySelectorAll('#segVariant button').forEach(x=>x.classList.toggle('on',x===b));
     const v = b.dataset.v;
-    page.className = 'page ' + v;
+    page.className = 'page ' + v + (curPaper ? ' ' + curPaper : '');
     Object.entries(lays).forEach(([k,sel])=>{
       page.querySelector(sel).style.display = (k===v)?'block':'none';
     });
+  });
+
+  /* ---- 纸张切换 ---- */
+  let curPaper = '';   // '' = 杂志白（默认）
+  document.getElementById('segPaper').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#segPaper button').forEach(x=>x.classList.toggle('on',x===b));
+    curPaper = b.dataset.p;
+    page.classList.remove('paper-cream','paper-kraft','paper-grid','paper-line','paper-dot');
+    if(curPaper) page.classList.add(curPaper);
+    saveDraft();
   });
 
   /* ---- 照片上传 ---- */
@@ -1700,6 +1747,7 @@
     const d = {
       v: 1,
       variant: vOrder.find(v => page.classList.contains(v)) || 'vA',
+      paper: curPaper,
       tscale: document.getElementById('tScale').value,
       bscale: document.getElementById('bScale').value,
       size: String(pageH),
@@ -1740,6 +1788,8 @@
     try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
     if(!d || d.v !== 1) return;
     try{
+      const pb = document.querySelector('#segPaper button[data-p="' + (d.paper || '') + '"]');
+      if(pb) pb.click();   // 先纸张后版式：版式切换会重写 className，需要保留纸张类
       const vb = document.querySelector('#segVariant button[data-v="' + d.variant + '"]');
       if(vb) vb.click();
       const ts = document.getElementById('tScale'); ts.value = d.tscale || 1;
