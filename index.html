@@ -89,7 +89,12 @@
   }
   @media (max-width:820px){
     body{flex-direction:column;overflow-y:auto;height:auto;padding-bottom:64px}
-    .stage{order:1;padding:14px;min-height:0;flex:none}
+    /* 预览区吸顶固定：功能区滚动时画布始终可见，改动实时可见 */
+    .stage{
+      order:1;padding:14px;min-height:0;flex:none;
+      position:sticky;top:0;z-index:30;background:#E9E4D8;
+      border-bottom:1px solid #D8D1C0;
+    }
     .panel{
       order:2;width:100%;height:auto;border-right:none;border-top:1px solid #D8D1C0;
       padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px;overflow:visible;
@@ -97,6 +102,8 @@
     .brand{grid-column:1/-1}
     .tip{grid-column:1/-1}
     .btn{padding:13px;font-size:14px}
+    /* 面板元素被脚本滚动定位时，自动避开吸顶预览区 */
+    .panel>*{scroll-margin-top:54vh}
     /* 底部固定主操作栏：识别 / 抠图 / 导出 / 版式，不用滚面板 */
     #mBar{
       display:flex;position:fixed;left:0;right:0;bottom:0;z-index:80;
@@ -537,7 +544,8 @@
   function fitPage(){
     const pad = window.innerWidth <= 820 ? 28 : 72;
     const availW = stage.clientWidth - pad;
-    const availH = window.innerWidth <= 820 ? Infinity : stage.clientHeight - pad;
+    // 手机端画布压到约 45% 屏高：预览吸顶后，给下方功能区留出滚动空间
+    const availH = window.innerWidth <= 820 ? window.innerHeight * 0.45 : stage.clientHeight - pad;
     const s = Math.min(availW/600, availH/pageH, 1);
     page._scale = s;   // 手势换算用
     // iOS 的 zoom 文字渲染有 bug（布局缩小文字不缩，导致重叠），iOS 用 transform；其余优先 zoom（光标更稳）
@@ -829,10 +837,14 @@
     }
   });
 
-  /* 编辑文字时键盘弹出会遮挡：聚焦后把该文字滚到屏幕中部 */
+  /* 编辑文字时键盘弹出会遮挡：聚焦后若文字不在可视区才滚动（吸顶预览内的文字不动） */
   page.addEventListener('focusin', e => {
-    if(e.target.isContentEditable)
-      setTimeout(() => e.target.scrollIntoView({ block:'center', behavior:'smooth' }), 350);
+    if(!e.target.isContentEditable) return;
+    setTimeout(() => {
+      const r = e.target.getBoundingClientRect();
+      if(r.top < 0 || r.bottom > innerHeight)
+        e.target.scrollIntoView({ block:'center', behavior:'smooth' });
+    }, 350);
   });
 
   /* 可取消的长耗时操作：浮动「取消」钮置 flag，各阶段检查点响应 */
