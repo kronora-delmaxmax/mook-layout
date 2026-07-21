@@ -533,9 +533,9 @@
   <div class="page vA" id="page">
 
     <div class="masthead">
-      <span class="vol" contenteditable>VOL.01</span>
-      <span class="issue" contenteditable>朝食特輯</span>
-      <span class="en" contenteditable>Morning Table Journal</span>
+      <span class="vol hint" contenteditable>刊号 VOL.01</span>
+      <span class="issue hint" contenteditable>特辑名</span>
+      <span class="en hint" contenteditable>英文刊名</span>
     </div>
 
     <!-- 版式 A -->
@@ -2004,7 +2004,8 @@
       strokeW: strokeW.value, strokeColor,
       filter: { bri: fBri.value, con: fCon.value, sat: fSat.value, warm: fWarm.value },
       texts,
-      mast: [...document.querySelectorAll('.masthead span')].map(s => s.textContent),
+      mast: [...document.querySelectorAll('.masthead span')].map(s =>
+        s.classList.contains('hint') ? null : s.textContent),
       folio: document.querySelector('.folio').textContent,
       collage: collageOn,
       photos: [...document.querySelectorAll('.photo')].map(p => {
@@ -2066,7 +2067,9 @@
       }
       Object.entries(d.texts || {}).forEach(([k,v]) => setText(k, v));
       const masts = document.querySelectorAll('.masthead span');
-      (d.mast || []).forEach((t,i) => { if(masts[i]) masts[i].textContent = t; });
+      (d.mast || []).forEach((t,i) => {
+        if(masts[i] && t != null){ masts[i].textContent = t; masts[i].classList.remove('hint'); }
+      });
       if(d.folio) document.querySelector('.folio').textContent = d.folio;
       const pEls = [...document.querySelectorAll('.photo')];
       (d.photos || []).forEach((pd, i) => {
