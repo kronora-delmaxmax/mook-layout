@@ -45,6 +45,8 @@
   .btn-ghost{background:transparent;border:1px solid #C9C2B4;color:var(--ink)}
   .btn-ghost:hover{border-color:var(--ink)}
   .stroke-row{display:flex;align-items:center;gap:10px}
+  .f-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .f-row span{font-size:11px;width:30px;color:#8A8271;flex-shrink:0}
   input[type=range]{flex:1;accent-color:var(--accent)}
   .swatches{display:flex;gap:6px}
   .sw{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
@@ -168,6 +170,11 @@
   /* 导出时隐藏编辑痕迹 */
   .exporting .sticker{outline:none!important}
   .exporting .sticker .del,.exporting .sticker .reedit{display:none!important}
+  /* 拖拽对齐参考线 */
+  #guideV,#guideH{position:absolute;z-index:40;pointer-events:none;display:none}
+  #guideV{top:0;bottom:0;width:0;border-left:1.5px dashed #E85D3D}
+  #guideH{left:0;right:0;height:0;border-top:1.5px dashed #E85D3D}
+  .exporting #guideV,.exporting #guideH{display:none!important}
   .sticker .num-tag{
     position:absolute;left:2px;top:calc(100% + 3px);white-space:nowrap;
     font-family:'Playfair Display',serif;font-size:13px;font-weight:700;
@@ -194,6 +201,13 @@
 
   .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4;touch-action:none}
   .photo.filled{cursor:grab}
+  .ph-tools{position:absolute;right:6px;top:6px;z-index:8;display:none;gap:6px}
+  .photo.filled .ph-tools{display:flex}
+  .ph-tools button{
+    width:34px;height:34px;border-radius:50%;border:none;background:rgba(43,43,43,.75);
+    color:#FAF7F0;font-size:15px;cursor:pointer;font-family:inherit;touch-action:manipulation;
+  }
+  .exporting .ph-tools{display:none!important}
   .photo img{width:100%;height:100%;object-fit:cover;display:block}
   .photo .ph{
     position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;
@@ -336,6 +350,15 @@
   </div>
 
   <div class="group">
+    <label>照片调色 FILTER</label>
+    <div class="f-row"><span>亮度</span><input type="range" id="fBri" min="0.7" max="1.3" step="0.05" value="1"></div>
+    <div class="f-row"><span>对比</span><input type="range" id="fCon" min="0.7" max="1.3" step="0.05" value="1"></div>
+    <div class="f-row"><span>饱和</span><input type="range" id="fSat" min="0" max="2" step="0.05" value="1"></div>
+    <div class="f-row"><span>暖调</span><input type="range" id="fWarm" min="0" max="0.5" step="0.05" value="0"></div>
+    <button class="btn btn-ghost" id="fReset" style="margin-top:6px;padding:7px">↺ 还原调色</button>
+  </div>
+
+  <div class="group">
     <label>抠图贴纸 STICKER</label>
     <button class="btn btn-ghost" id="btnCut">✂ 抠图做贴纸</button>
     <div class="seg" style="margin-top:8px">
@@ -365,7 +388,11 @@
     · 点击照片框放入你的照片<br>
     · 所有文字可直接点选编辑<br>
     · 手机导出：点导出后在分享面板选<br>「存储图像 / 保存到相册」<br>
-    · 电脑导出：自动下载 PNG 文件
+    · 电脑导出：自动下载 PNG 文件<br>
+    · 草稿自动保存在本机，刷新不丢
+    <button id="btnReset" style="margin-top:10px;width:100%;padding:8px;font-size:11px;
+      border:1px dashed #C9C2B4;background:transparent;color:#8A8271;border-radius:3px;
+      cursor:pointer;font-family:inherit">🗑 清空草稿，重新开始</button>
   </div>
 </aside>
 
@@ -463,6 +490,8 @@
     </div>
 
     <div class="folio" contenteditable>— 01 —</div>
+    <div id="guideV"></div>
+    <div id="guideH"></div>
   </div>
   </div>
 </main>
@@ -496,7 +525,7 @@
 </div>
 
 <script>
-(function(){
+(async function(){
   const page = document.getElementById('page');
   const pageWrap = document.getElementById('pageWrap');
   const stage = document.getElementById('stage');
@@ -611,11 +640,49 @@
       if(moved) ph._suppressClick = true;   // 抑制随后的 click 换图
       pts.delete(e.pointerId);
       if(pts.size < 2) ph._pinch0 = null;
+      if(pts.size === 0 && moved) saveDraft();
     };
     ph.addEventListener('pointerup', up);
     ph.addEventListener('pointercancel', up);
   }
   document.querySelectorAll('.photo').forEach(attachPhotoGestures);
+
+  /* ---- 照片旋转 / 镜像翻转：直接烘焙进图像数据（导出与预览一致，无兼容风险） ---- */
+  async function bakeRotFlip(src, rot){
+    const im = await new Promise((res, rej) => {
+      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
+    });
+    const c = document.createElement('canvas');
+    c.width = rot ? im.naturalHeight : im.naturalWidth;
+    c.height = rot ? im.naturalWidth : im.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width/2, c.height/2);
+    if(rot) ctx.rotate(Math.PI/2); else ctx.scale(-1, 1);
+    ctx.drawImage(im, -im.naturalWidth/2, -im.naturalHeight/2);
+    return c.toDataURL('image/jpeg', .92);
+  }
+  document.querySelectorAll('.photo').forEach(p => {
+    const tools = document.createElement('div');
+    tools.className = 'ph-tools';
+    tools.innerHTML = '<button type="button" data-t="rot" title="旋转90°">⟳</button>' +
+                      '<button type="button" data-t="flip" title="左右翻转">⇋</button>';
+    tools.addEventListener('pointerdown', e => e.stopPropagation());   // 不触发拖动/换图
+    tools.addEventListener('click', async e => {
+      const b = e.target.closest('button'); if(!b) return;
+      e.stopPropagation();
+      const img = p.querySelector('img');
+      if(!p.classList.contains('filled') || !img.src) return;
+      b.disabled = true;
+      try{
+        const rot = b.dataset.t === 'rot';
+        img.src = await bakeRotFlip(img.src, rot);
+        if(p._origSrc) p._origSrc = await bakeRotFlip(p._origSrc, rot);   // 调色基准同步旋转
+        showToast(rot ? '已旋转 90°' : '已左右翻转');
+      }finally{ b.disabled = false; }
+    });
+    p.appendChild(tools);
+  });
+
   fileIn.addEventListener('change', ()=>{
     const f = fileIn.files[0]; if(!f) return;
     if(cutPickMode){
@@ -628,10 +695,12 @@
     r.onload = e=>{
       const img = activeSlot.querySelector('img');
       img.src = e.target.result;
+      activeSlot._origSrc = e.target.result;   // 调色基准：永远保留最干净的原片
       img.style.transform = '';          // 换图时复位构图
       activeSlot._pz = 1; activeSlot._px = 0; activeSlot._py = 0;
       activeSlot.classList.add('filled');
       applyStroke();
+      previewFilter();                   // 新照片套用当前调色
     };
     r.readAsDataURL(f);
     fileIn.value = '';
@@ -670,6 +739,41 @@
   };
   const $ = id => document.getElementById(id);
   const aiPreset=$('aiPreset'), aiBase=$('aiBase'), aiModel=$('aiModel'), aiKey=$('aiKey'), aiStatus=$('aiStatus');
+
+  /* ---- 照片调色：滑杆实时预览（CSS filter），导出时烘焙进像素 ----
+     编辑期间绝不动原图数据，p._origSrc 始终是最干净的原片 */
+  const fBri = $('fBri'), fCon = $('fCon'), fSat = $('fSat'), fWarm = $('fWarm');
+  function filterStr(){
+    const parts = [];
+    if(+fBri.value !== 1) parts.push('brightness(' + fBri.value + ')');
+    if(+fCon.value !== 1) parts.push('contrast(' + fCon.value + ')');
+    if(+fSat.value !== 1) parts.push('saturate(' + fSat.value + ')');
+    if(+fWarm.value > 0)  parts.push('sepia(' + fWarm.value + ')');
+    return parts.join(' ') || 'none';
+  }
+  function previewFilter(){
+    const f = filterStr();
+    document.querySelectorAll('.photo.filled img').forEach(img => {
+      img.style.filter = f === 'none' ? '' : f;
+    });
+  }
+  [fBri, fCon, fSat, fWarm].forEach(el => {
+    el.addEventListener('input', () => { previewFilter(); saveDraft(); });
+  });
+  $('fReset').addEventListener('click', () => {
+    fBri.value = fCon.value = fSat.value = 1; fWarm.value = 0;
+    previewFilter(); saveDraft();
+  });
+  /* 导出烘焙用：把当前滤镜画进新图像（html2canvas 不支持 CSS filter） */
+  async function bakeFilterImg(src, f){
+    const im = await loadImage(src);
+    const c = document.createElement('canvas');
+    c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const ctx = c.getContext('2d');
+    if('filter' in ctx) ctx.filter = f;   // 老内核不支持则静默降级为原图
+    ctx.drawImage(im, 0, 0);
+    return c.toDataURL('image/jpeg', .92);
+  }
 
   // 恢复本地保存的配置（默认免Key档；仅当存了Key才恢复对应服务商档位）
   try{
@@ -1226,6 +1330,13 @@
   const stickerHistory = [];
   let zTopN = 21, zBottomN = 20;
 
+  function showGuides(v, h){
+    const gv = $('guideV'), gh = $('guideH');
+    gv.style.display = v == null ? 'none' : 'block';
+    if(v != null) gv.style.left = v + 'px';
+    gh.style.display = h == null ? 'none' : 'block';
+    if(h != null) gh.style.top = h + 'px';
+  }
   function bindSticker(st){
     const pts = new Map();
     st.addEventListener('pointerdown', e => {
@@ -1247,6 +1358,27 @@
         const sw = st.offsetWidth * st._s, sh = st._img.offsetHeight * st._s;
         st._x = Math.max(-sw + 40, Math.min(600 - 40, st._x));
         st._y = Math.max(-sh + 40, Math.min(pageH - 40, st._y));
+        // 对齐吸附：页面中轴/边距 + 其他贴纸的中心与边缘
+        const SNAP = 6;
+        const xC = [300], xL = [33], xR = [567], yC = [pageH/2], yT = [], yB = [];
+        document.querySelectorAll('.sticker').forEach(o => {
+          if(o === st) return;
+          const ow = o.offsetWidth * o._s, oh = o._img.offsetHeight * o._s;
+          xC.push(o._x + ow/2); xL.push(o._x); xR.push(o._x + ow);
+          yC.push(o._y + oh/2); yT.push(o._y); yB.push(o._y + oh);
+        });
+        let gv = null, gh = null;
+        const trySnap = (vals, cur, set) => {
+          for(const L of vals){ if(Math.abs(cur - L) < SNAP){ set(L); return L; } }
+          return null;
+        };
+        gv = trySnap(xC, st._x + sw/2, L => st._x = L - sw/2)
+          ?? trySnap(xL, st._x,       L => st._x = L)
+          ?? trySnap(xR, st._x + sw,  L => st._x = L - sw);
+        gh = trySnap(yC, st._y + sh/2, L => st._y = L - sh/2)
+          ?? trySnap(yT, st._y,        L => st._y = L)
+          ?? trySnap(yB, st._y + sh,   L => st._y = L - sh);
+        showGuides(gv, gh);
       }else if(pts.size === 2){
         const [a,b] = [...pts.values()];
         const d = Math.hypot(a.x-b.x, a.y-b.y);
@@ -1254,7 +1386,11 @@
       }
       applyTransform(st);
     });
-    const up = e => { pts.delete(e.pointerId); if(pts.size < 2) st._pinch0 = null; };
+    const up = e => {
+      pts.delete(e.pointerId);
+      if(pts.size < 2) st._pinch0 = null;
+      if(pts.size === 0){ showGuides(null, null); saveDraft(); }   // 收参考线 + 存草稿
+    };
     st.addEventListener('pointerup', up);
     st.addEventListener('pointercancel', up);
   }
@@ -1280,7 +1416,7 @@
       e.stopPropagation();
       stickerHistory.push({ type:'del', st });
       if(stickerHistory.length > 20) stickerHistory.shift();
-      st.remove(); renumberTags();
+      st.remove(); renumberTags(); saveDraft();
     });
     st.appendChild(del);
     if(st._photoURL && st._maskURL){
@@ -1304,6 +1440,7 @@
           st.dataset.cutout = composite(photo, finalMask).toDataURL('image/png');
           st._maskURL = finalMask.toDataURL('image/png');
           await rebakeSticker(st);
+          saveDraft();
           setCut('边缘已更新','ok');
         }catch(err){
           setCut('重修失败：' + String(err.message||err).slice(0,60), 'err');
@@ -1320,6 +1457,7 @@
 
     selectSticker(st);
     await rebakeSticker(st);
+    return st;
   }
 
   /* 置顶 / 置底 / 撤销 */
@@ -1331,6 +1469,7 @@
     if(last.type === 'add'){ last.st.remove(); }
     else { page.appendChild(last.st); applyTransform(last.st); }
     renumberTags();
+    saveDraft();
     setCut('已撤销', 'ok');
   });
   /* 蒙版微调编辑器：返回 Promise<编辑后的蒙版画布 | null(取消)> */
@@ -1530,8 +1669,135 @@
     document.querySelectorAll(`[data-k="${k}"]`).forEach(el=>el.textContent=v);
   }
 
+  /* ---- 草稿自动保存：防抖写入 localStorage，打开时恢复；配额不足自动降级 ---- */
+  const DRAFT_KEY = 'mooklab_draft_v1';
+  let draftTimer = null, draftReady = false;
+  function shrinkForDraft(img){   // 照片压缩存档，控制体积
+    try{
+      const max = 800, r = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * r));
+      c.height = Math.max(1, Math.round(img.naturalHeight * r));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', .78);
+    }catch(e){ return null; }
+  }
+  function collectDraft(level){
+    const texts = {};
+    document.querySelectorAll('[data-k]').forEach(el => texts[el.dataset.k] = el.textContent);
+    const d = {
+      v: 1,
+      variant: vOrder.find(v => page.classList.contains(v)) || 'vA',
+      tscale: document.getElementById('tScale').value,
+      bscale: document.getElementById('bScale').value,
+      size: String(pageH),
+      strokeW: strokeW.value, strokeColor,
+      filter: { bri: fBri.value, con: fCon.value, sat: fSat.value, warm: fWarm.value },
+      texts,
+      mast: [...document.querySelectorAll('.masthead span')].map(s => s.textContent),
+      folio: document.querySelector('.folio').textContent,
+      photos: [...document.querySelectorAll('.photo')].map(p => {
+        if(!p.classList.contains('filled')) return null;
+        return { src: shrinkForDraft(p.querySelector('img')), pz: p._pz||1, px: p._px||0, py: p._py||0 };
+      }),
+      stickers: level === 0 ? [] : [...document.querySelectorAll('.sticker')].map(st => ({
+        cut: st.dataset.cutout,
+        x: st._x, y: st._y, s: st._s, z: st.style.zIndex,
+        tag: st.querySelector('.num-tag').textContent,
+        seq: +st.dataset.seq,
+        photo: level === 2 ? st._photoURL : null,
+        mask: level === 2 ? st._maskURL : null,
+      })),
+      stickerSeq,
+    };
+    return d;
+  }
+  function saveDraft(){
+    if(!draftReady) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => {
+      // 降级链：全量(含重修源图) → 去源图只留贴纸 → 只存文字与设置
+      for(const level of [2, 1, 0]){
+        try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft(level))); return; }
+        catch(e){ /* QuotaExceeded → 降一级再试 */ }
+      }
+    }, 600);
+  }
+  async function loadDraft(){
+    let d = null;
+    try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
+    if(!d || d.v !== 1) return;
+    try{
+      const vb = document.querySelector('#segVariant button[data-v="' + d.variant + '"]');
+      if(vb) vb.click();
+      const ts = document.getElementById('tScale'); ts.value = d.tscale || 1;
+      ts.dispatchEvent(new Event('input'));
+      const bs = document.getElementById('bScale'); bs.value = d.bscale || 1;
+      bs.dispatchEvent(new Event('input'));
+      const ss = document.getElementById('sizeSel');
+      if([...ss.options].some(o => o.value === d.size)){ ss.value = d.size; ss.dispatchEvent(new Event('change')); }
+      strokeW.value = d.strokeW || 0;
+      strokeColor = d.strokeColor || '#FFFFFF';
+      document.querySelectorAll('#swatches .sw').forEach(x =>
+        x.classList.toggle('on', x.dataset.c === strokeColor));
+      if(d.filter){
+        fBri.value = d.filter.bri; fCon.value = d.filter.con;
+        fSat.value = d.filter.sat; fWarm.value = d.filter.warm;
+      }
+      Object.entries(d.texts || {}).forEach(([k,v]) => setText(k, v));
+      const masts = document.querySelectorAll('.masthead span');
+      (d.mast || []).forEach((t,i) => { if(masts[i]) masts[i].textContent = t; });
+      if(d.folio) document.querySelector('.folio').textContent = d.folio;
+      const pEls = [...document.querySelectorAll('.photo')];
+      (d.photos || []).forEach((pd, i) => {
+        if(!pd || !pd.src || !pEls[i]) return;
+        const p = pEls[i], img = p.querySelector('img');
+        img.src = pd.src;
+        p._origSrc = pd.src;   // 草稿里的照片未经烘焙，可作调色基准
+        p.classList.add('filled');
+        p._pz = pd.pz || 1; p._px = pd.px || 0; p._py = pd.py || 0;
+        if(p._pz !== 1 || p._px || p._py){
+          img.style.transformOrigin = 'center';
+          img.style.transform = 'translate(' + p._px + 'px,' + p._py + 'px) scale(' + p._pz + ')';
+          img.style.maxWidth = 'none';
+        }
+      });
+      const slist = (d.stickers || []).filter(s => s.cut).sort((a,b) => a.seq - b.seq);
+      for(const sd of slist){
+        const st = await addSticker(sd.cut, sd.photo, sd.mask);
+        st._x = sd.x; st._y = sd.y; st._s = sd.s;
+        st.style.zIndex = sd.z || 20;
+        st.querySelector('.num-tag').textContent = sd.tag;
+        applyTransform(st);
+      }
+      stickerSeq = Math.max(stickerSeq, d.stickerSeq || 0);
+      applyStroke(false);
+      previewFilter();
+      renumberTags();
+      if(slist.length || (d.photos||[]).some(Boolean)) showToast('已恢复上次草稿');
+    }catch(e){ /* 草稿损坏则忽略，从空白开始 */ }
+  }
+  /* 保存挂钩：文字输入、版式/字号/尺寸/描边变更、图片加载完成、定时兜底 */
+  page.addEventListener('input', saveDraft);
+  page.addEventListener('load', e => { if(e.target.tagName === 'IMG') saveDraft(); }, true);
+  document.getElementById('segVariant').addEventListener('click', saveDraft);
+  document.getElementById('tScale').addEventListener('input', saveDraft);
+  document.getElementById('bScale').addEventListener('input', saveDraft);
+  document.getElementById('sizeSel').addEventListener('change', saveDraft);
+  strokeW.addEventListener('change', saveDraft);
+  document.getElementById('swatches').addEventListener('click', saveDraft);
+  setInterval(saveDraft, 15000);   // 兜底：手势等未挂钩的变更也能存上
+  document.getElementById('btnReset').addEventListener('click', () => {
+    if(confirm('清空草稿并恢复初始页面？')){
+      localStorage.removeItem(DRAFT_KEY);
+      location.reload();
+    }
+  });
+  await loadDraft();
+  draftReady = true;
+
   /* ---- 导出 ---- */
-  document.getElementById('btnExport').addEventListener('click', ()=>{
+  document.getElementById('btnExport').addEventListener('click', async ()=>{
     const btn = document.getElementById('btnExport');
     btn.textContent = '生成中…';
     const prevT = page.style.transform, prevZ = page.style.zoom;
@@ -1539,6 +1805,23 @@
     page.style.zoom = '100%';
     page.classList.add('exporting');
     if(typeof selectSticker === 'function') selectSticker(null);
+    // html2canvas 不支持 CSS filter：有调色时先把滤镜烘焙进临时图像
+    const filtered = [];
+    const fStr = filterStr();
+    if(fStr !== 'none'){
+      for(const p of document.querySelectorAll('.photo.filled')){
+        const img = p.querySelector('img');
+        try{
+          const baked = await bakeFilterImg(p._origSrc || img.src, fStr);
+          filtered.push([img, img.src, img.style.filter]);
+          img.src = baked;
+          img.style.filter = '';
+          // 必须等新图加载完：html2canvas 读的是 currentSrc，未加载完时仍指向旧图
+          await new Promise(r => { img.onload = r; img.onerror = r; });
+        }catch(e){}
+      }
+    }
+    const restoreFilter = () => filtered.forEach(([img, src, fl]) => { img.src = src; img.style.filter = fl; });
     // html2canvas 不支持 object-fit:cover（会把照片拉伸变形），
     // 导出前把 cover 换算成显式尺寸+位移，overflow 裁剪，导完恢复
     const fitted = [];
@@ -1558,10 +1841,11 @@
       img.style.objectFit = 'fill';   // w2×h2 与原图同比例，fill 不变形
     });
     const restoreFit = () => fitted.forEach(([img, css]) => img.style.cssText = css);
+    const restoreAll = () => { restoreFit(); restoreFilter(); };
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
       page.style.transform = prevT;
       page.style.zoom = prevZ;
-      restoreFit();
+      restoreAll();
       page.classList.remove('exporting');
       btn.textContent = '↓ 导出 PNG（小红书 3:4）';
       cv.toBlob(async blob => {
@@ -1585,7 +1869,7 @@
     }).catch(()=>{
       page.style.transform = prevT;
       page.style.zoom = prevZ;
-      restoreFit();
+      restoreAll();
       page.classList.remove('exporting');
       btn.textContent = '↓ 导出 PNG';
     });
