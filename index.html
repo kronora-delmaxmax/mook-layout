@@ -301,6 +301,9 @@
     color:#FAF7F0;font-size:15px;cursor:pointer;font-family:inherit;touch-action:manipulation;
   }
   .exporting .ph-tools{display:none!important}
+  /* 栏位提示态：未填写时显示灰色栏位名，编辑或 AI 生成后恢复正文色 */
+  [contenteditable].hint{color:#BDB5A2!important}
+  .layE [contenteditable].hint{color:rgba(255,255,255,.55)!important}
   /* ===== 拼贴感：照片小倾角 + 美纹纸胶带 ===== */
   .photo.tilt{box-shadow:0 3px 10px rgba(60,50,30,.18)}
   .photo.tape::before,.photo.tape::after{
@@ -541,26 +544,26 @@
         <div class="ph"><b>＋</b>点击放入主图</div><img alt="">
       </div>
       <div class="title-wrap">
-        <div class="title-v" contenteditable data-k="title">七日町的早餐散步</div>
-        <div class="title-tag" contenteditable data-k="tag">朝食特辑</div>
+        <div class="title-v hint" contenteditable data-k="title">主标题</div>
+        <div class="title-tag hint" contenteditable data-k="tag">栏目标签</div>
       </div>
       <div class="sub">
         <span class="no" contenteditable>01</span>
-        <span class="t" contenteditable data-k="sub">清晨七点的香气，是这座城市醒来的信号。</span>
+        <span class="t hint" contenteditable data-k="sub">导语：一句话概括这组照片</span>
       </div>
       <div class="caps">
-        <p class="cap"><b>◎</b><span contenteditable data-k="c0">厚切吐司配半熟蛋，炭火烘焙的焦香从巷口飘出。店主说，每天的第一炉只烤四十片。</span></p>
-        <p class="cap"><b>◎</b><span contenteditable data-k="c1">手冲咖啡选了中深焙的曼特宁，苦味干净，尾韵带一点黑巧克力的甜。</span></p>
-        <p class="cap"><b>◎</b><span contenteditable data-k="c2">靠窗的位置能看见整条街道醒来：送报人、遛狗的老人、匆匆的上班族。</span></p>
-        <p class="cap"><b>◎</b><span contenteditable data-k="c3">早餐的意义不在于丰盛，而在于给一天一个不慌不忙的开头。</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c0" class="hint">图注：名称＋一两句小故事</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c1" class="hint">图注：名称＋一两句小故事</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c2" class="hint">图注：名称＋一两句小故事</span></p>
+        <p class="cap"><b>◎</b><span contenteditable data-k="c3" class="hint">图注：名称＋一两句小故事</span></p>
       </div>
     </div>
 
     <!-- 版式 B -->
     <div class="lay layB" style="display:none">
       <div class="head">
-        <div class="title-h" contenteditable data-k="titleB">吐司、咖啡，与晨光</div>
-        <div class="title-en" contenteditable data-k="subB">Breakfast Walk in the Old Town — 7:00 AM</div>
+        <div class="title-h hint" contenteditable data-k="titleB">主标题</div>
+        <div class="title-en hint" contenteditable data-k="subB">ENGLISH SUBTITLE</div>
       </div>
       <div class="photo hero framed" data-slot="0">
         <div class="ph"><b>＋</b>主图</div><img alt="">
@@ -570,52 +573,52 @@
         <div class="photo framed" data-slot="2"><div class="ph"><b>＋</b>小图 2</div><img alt=""></div>
       </div>
       <div class="caps">
-        <p class="cap"><span contenteditable data-k="c0">厚切吐司配半熟蛋。炭火烘焙的焦香，是这条街清晨的信号。</span></p>
-        <p class="cap"><span contenteditable data-k="c1">中深焙曼特宁手冲，苦味干净。早餐的意义，是给一天一个从容的开头。</span></p>
+        <p class="cap"><span contenteditable data-k="c0" class="hint">图注：名称＋一两句小故事</span></p>
+        <p class="cap"><span contenteditable data-k="c1" class="hint">图注：名称＋一两句小故事</span></p>
       </div>
     </div>
 
     <!-- 版式 C -->
     <div class="lay layC" style="display:none">
       <div class="head">
-        <div class="title-h" contenteditable data-k="titleC">朝食图鉴</div>
-        <div class="title-en" contenteditable data-k="subC">MORNING TABLE CATALOGUE</div>
+        <div class="title-h hint" contenteditable data-k="titleC">图鉴标题</div>
+        <div class="title-en hint" contenteditable data-k="subC">ENGLISH SUBTITLE</div>
         <div class="rule"></div>
       </div>
       <div class="grid">
         <div class="cell">
           <div class="photo" data-slot="0"><div class="ph"><b>＋</b>图 1</div><img alt=""></div>
           <div class="num" contenteditable>No.01</div>
-          <p class="cap" contenteditable data-k="c0">厚切吐司，炭火烘焙，每日限量四十片。</p>
+          <p class="cap hint" contenteditable data-k="c0">单品名＋一句话</p>
         </div>
         <div class="cell">
           <div class="photo" data-slot="1"><div class="ph"><b>＋</b>图 2</div><img alt=""></div>
           <div class="num" contenteditable>No.02</div>
-          <p class="cap" contenteditable data-k="c1">手冲曼特宁，中深焙，尾韵有黑巧的甜。</p>
+          <p class="cap hint" contenteditable data-k="c1">单品名＋一句话</p>
         </div>
         <div class="cell">
           <div class="photo" data-slot="2"><div class="ph"><b>＋</b>图 3</div><img alt=""></div>
           <div class="num" contenteditable>No.03</div>
-          <p class="cap" contenteditable data-k="c2">半熟蛋配海盐，蛋白凝固、蛋黄流心。</p>
+          <p class="cap hint" contenteditable data-k="c2">单品名＋一句话</p>
         </div>
         <div class="cell">
           <div class="photo" data-slot="3"><div class="ph"><b>＋</b>图 4</div><img alt=""></div>
           <div class="num" contenteditable>No.04</div>
-          <p class="cap" contenteditable data-k="c3">复古搪瓷杯，店主的私藏餐具之一。</p>
+          <p class="cap hint" contenteditable data-k="c3">单品名＋一句话</p>
         </div>
       </div>
-      <div class="foot-note" contenteditable data-k="foot">—— 朝食的意义，是给一天一个不慌不忙的开头 ——</div>
+      <div class="foot-note hint" contenteditable data-k="foot">—— 结尾一句话 ——</div>
     </div>
 
     <!-- 版式 D：贴纸图鉴版 -->
     <div class="lay layD" style="display:none">
       <div class="head">
-        <div class="title-h" contenteditable data-k="titleD">爱物图鉴</div>
-        <div class="title-en" contenteditable data-k="subD">FAVORITE THINGS CATALOGUE</div>
+        <div class="title-h hint" contenteditable data-k="titleD">图鉴标题</div>
+        <div class="title-en hint" contenteditable data-k="subD">ENGLISH SUBTITLE</div>
         <div class="rule"></div>
       </div>
       <div class="hint" id="stickHint"><b>✂</b>用左侧「抠图贴纸」逐件添加单品<br>拖动摆放 · 双指缩放 · 自动编号</div>
-      <div class="foot-note" contenteditable data-k="footD">—— 每件单品都有它的来处和故事 ——</div>
+      <div class="foot-note hint" contenteditable data-k="footD">—— 结尾一句话 ——</div>
     </div>
 
     <!-- 版式 E：全出血大图 + 反白标题 -->
@@ -623,9 +626,9 @@
       <div class="photo bleed"><div class="ph">点击放入主图</div><img alt=""></div>
       <div class="bleed-scrim"></div>
       <div class="bleed-cap">
-        <div class="en-cap" contenteditable data-k="en">SLOW MORNING</div>
-        <h1 contenteditable data-k="title">七日町的早餐散步</h1>
-        <div class="lead" contenteditable data-k="lead">清晨七点的香气，是这座城市醒来的信号。</div>
+        <div class="en-cap hint" contenteditable data-k="en">ENGLISH SUBTITLE</div>
+        <h1 contenteditable data-k="title" class="hint">主标题</h1>
+        <div class="lead hint" contenteditable data-k="lead">导语：一句话概括这组照片</div>
       </div>
     </div>
 
@@ -1493,9 +1496,16 @@
 
   /* ---- 文字溢出检测：超出页面边缘的文字标红框警告 ---- */
   let ovTimer = null;
-  page.addEventListener('input', () => {
+  page.addEventListener('input', e => {
+    if(e.target.classList && e.target.classList.contains('hint'))
+      e.target.classList.remove('hint');   // 用户开始编辑，提示态转正文
     clearTimeout(ovTimer);
     ovTimer = setTimeout(checkOverflow, 300);
+  });
+  /* 提示态栏位聚焦时全选，打字即整体替换 */
+  page.addEventListener('focusin', e => {
+    if(e.target.classList && e.target.classList.contains('hint'))
+      getSelection().selectAllChildren(e.target);
   });
   function checkOverflow(){
     const pr = page.getBoundingClientRect();
@@ -1959,7 +1969,10 @@
   }
   document.getElementById('btnAI').addEventListener('click', callAI);
   function setText(k, v){
-    document.querySelectorAll(`[data-k="${k}"]`).forEach(el=>el.textContent=v);
+    document.querySelectorAll(`[data-k="${k}"]`).forEach(el=>{
+      el.classList.remove('hint');   // AI 生成的是正文，去掉提示态
+      el.textContent = v;
+    });
   }
 
   /* ---- 草稿自动保存：防抖写入 localStorage，打开时恢复；配额不足自动降级 ---- */
@@ -1977,7 +1990,10 @@
   }
   function collectDraft(level){
     const texts = {};
-    document.querySelectorAll('[data-k]').forEach(el => texts[el.dataset.k] = el.textContent);
+    document.querySelectorAll('[data-k]').forEach(el => {
+      if(el.classList.contains('hint')) return;   // 提示态是默认值，不入草稿
+      texts[el.dataset.k] = el.textContent;
+    });
     const d = {
       v: 1,
       variant: vOrder.find(v => page.classList.contains(v)) || 'vA',
