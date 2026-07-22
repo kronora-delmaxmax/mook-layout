@@ -1260,7 +1260,7 @@
         });
         if(!resp.ok){ lastErr = '润色接口繁忙（'+resp.status+'）'; continue; }
         const d = await resp.json();
-        const text = d.choices?.[0]?.message?.content || '';
+        const text = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '';
         const m = text.match(/\{[\s\S]*\}/);
         if(m){ try{ return JSON.parse(m[0]); }catch(e){ lastErr='JSON 解析失败'; } }
         else lastErr = '模型未返回有效 JSON';
@@ -1277,8 +1277,8 @@
     let lastErr;
     for(const src of sources){
       try{
-        // 本地运行时包含 23MB WASM 编译，需要较长等待；CDN 作为后备
-        return await withTimeout(import(src), src.startsWith('http') ? 45000 : 120000);
+        // 本地运行时包含 23MB WASM 编译，需要较长等待
+        return await withTimeout(importModule(src), 120000);
       }catch(e){ lastErr = e; }
     }
     throw lastErr || new Error('视觉引擎加载失败');
@@ -1348,10 +1348,27 @@
     }
     const small = await downscale(imgEl);
     const ret = await ocrLib.recognize(small, 'eng+chi_sim');
-    return (ret?.data?.text || '').replace(/\s+/g,' ').trim().slice(0,80);
+    return ((ret && ret.data && ret.data.text) || '').replace(/\s+/g,' ').trim().slice(0,80);
   }
   function withTimeout(p, ms){
     return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('超时')),ms))]);
+  }
+  /* 兼容版模块加载：用 module script 注入代替动态 import()，老内核也能解析 */
+  function importModule(src){
+    return new Promise((resolve, reject) => {
+      const key = '__mod_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.onload = () => {
+        const m = window[key];
+        try{ delete window[key]; }catch(e){ window[key] = undefined; }
+        s.remove();
+        if(m) resolve(m); else reject(new Error('模块加载失败'));
+      };
+      s.onerror = () => { s.remove(); reject(new Error('模块加载失败')); };
+      s.textContent = 'import * as m from "' + src + '"; window["' + key + '"] = m;';
+      document.head.appendChild(s);
+    });
   }
 
   /* 建立事实清单：我看到（事实）/ 我推断（标"可能是"）/ 我未知（显式标注） */
@@ -1369,7 +1386,7 @@
       return { en:o.en, pct:Math.round(o.score*100)+'%', cn: m?m[0]:null, cat: m?m[1]:null };
     });
     const mapped = objects.filter(o => o.cn);
-    const cat = mapped[0]?.cat || 'default';
+    const cat = (mapped[0] && mapped[0].cat) || 'default';
     const seen = {
       物件: objects.map(o => (o.cn||o.en) + '（置信度' + o.pct + '）'),
       颜色: vis.color + '色调',
@@ -1450,8 +1467,8 @@
 
   function weaveLocal(facts){
     const items = facts.mapped.map(o => [o.cn, o.cat]);
-    const a = items[0]?.[0] || '眼前之物';
-    const b = items[1]?.[0] || '背景细节';
+    const a = (items[0] && items[0][0]) || '眼前之物';
+    const b = (items[1] && items[1][0]) || '背景细节';
     const cat = facts.cat;
     const color = facts.vis.color;
     const sc = SCENE[cat] || SCENE.default;
@@ -1521,8 +1538,8 @@
           })
         });
         const d = await resp.json();
-        if(!resp.ok) throw new Error(d.error?.message || ('API 错误 '+resp.status));
-        const text = d.choices?.[0]?.message?.content || '';
+        if(!resp.ok) throw new Error((d.error && d.error.message) || ('API 错误 '+resp.status));
+        const text = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '';
         const m = text.match(/\{[\s\S]*\}/);
         if(!m) throw new Error('模型未返回有效 JSON');
         fillAI(JSON.parse(m[0]));
@@ -1740,12 +1757,12 @@
           for(const L of vals){ if(Math.abs(cur - L) < SNAP){ set(L); return L; } }
           return null;
         };
-        gv = trySnap(xC, st._x + sw/2, L => st._x = L - sw/2)
-          ?? trySnap(xL, st._x,       L => st._x = L)
-          ?? trySnap(xR, st._x + sw,  L => st._x = L - sw);
-        gh = trySnap(yC, st._y + sh/2, L => st._y = L - sh/2)
-          ?? trySnap(yT, st._y,        L => st._y = L)
-          ?? trySnap(yB, st._y + sh,   L => st._y = L - sh);
+        gv = trySnap(xC, st._x + sw/2, L => st._x = L - sw/2);
+        if(gv === null) gv = trySnap(xL, st._x,      L => st._x = L);
+        if(gv === null) gv = trySnap(xR, st._x + sw, L => st._x = L - sw);
+        gh = trySnap(yC, st._y + sh/2, L => st._y = L - sh/2);
+        if(gh === null) gh = trySnap(yT, st._y,      L => st._y = L);
+        if(gh === null) gh = trySnap(yB, st._y + sh, L => st._y = L - sh);
         showGuides(gv, gh);
       }else if(pts.size === 2){
         const [a,b] = [...pts.values()];
@@ -2076,7 +2093,7 @@
       photos: [...document.querySelectorAll('.photo')].map(p => {
         if(!p.classList.contains('filled')) return null;
         return { src: shrinkForDraft(p.querySelector('img')), pz: p._pz||1, px: p._px||0, py: p._py||0,
-                 tilt: p._tilt ?? null, round: p.classList.contains('round') };
+                 tilt: (p._tilt != null ? p._tilt : null), round: p.classList.contains('round') };
       }),
       notes: [...page.querySelectorAll('.note')].map(n => ({
         t: ownText(n), x: parseFloat(n.style.left), y: parseFloat(n.style.top),
@@ -2144,7 +2161,7 @@
         p._origSrc = pd.src;   // 草稿里的照片未经烘焙，可作调色基准
         p.classList.add('filled');
         p._pz = pd.pz || 1; p._px = pd.px || 0; p._py = pd.py || 0;
-        p._tilt = pd.tilt ?? null;
+        p._tilt = (pd.tilt != null ? pd.tilt : null);
         p.classList.toggle('round', !!pd.round);
         if(p._pz !== 1 || p._px || p._py){
           img.style.transformOrigin = 'center';
