@@ -829,6 +829,26 @@
   function attachPhotoGestures(ph){
     const img = ph.querySelector('img');
     ph._pz = 1; ph._px = 0; ph._py = 0;
+    const frameSize = () => {
+      const r = ph.getBoundingClientRect(), ps = page._scale || 1;
+      return { W: r.width / ps, H: r.height / ps };
+    };
+    const pzFloor = () => {   // 缩到下限时整图完整可见（contain），不再被裁切
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if(!nw || !nh) return 1;
+      const { W, H } = frameSize();
+      return Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
+    };
+    const clampPan = () => {   // 图片大于相框：不许拖出空边；小于相框：不许拖出相框
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if(!nw || !nh) return;
+      const { W, H } = frameSize();
+      const s = Math.max(W / nw, H / nh);
+      const mx = Math.abs(nw * s * ph._pz - W) / 2;
+      const my = Math.abs(nh * s * ph._pz - H) / 2;
+      ph._px = Math.max(-mx, Math.min(mx, ph._px));
+      ph._py = Math.max(-my, Math.min(my, ph._py));
+    };
     const pts = new Map();
     let moved = false;
     ph.addEventListener('pointerdown', e => {
@@ -852,9 +872,10 @@
       }else if(pts.size === 2){
         const [a,b] = [...pts.values()];
         const d = Math.hypot(a.x-b.x, a.y-b.y);
-        ph._pz = Math.min(4, Math.max(1, ph._spz * d / (ph._pinch0 || d)));
+        ph._pz = Math.min(4, Math.max(pzFloor(), ph._spz * d / (ph._pinch0 || d)));
         moved = true;
       }
+      clampPan();
       img.style.transformOrigin = 'center';
       img.style.transform = 'translate(' + ph._px + 'px,' + ph._py + 'px) scale(' + ph._pz + ')';
       img.style.maxWidth = 'none';
@@ -889,7 +910,8 @@
     tools.className = 'ph-tools';
     tools.innerHTML = '<button type="button" data-t="rot" title="旋转90°">⟳</button>' +
                       '<button type="button" data-t="flip" title="左右翻转">⇋</button>' +
-                      '<button type="button" data-t="shape" title="圆形裁切">◯</button>';
+                      '<button type="button" data-t="shape" title="圆形裁切">◯</button>' +
+                      '<button type="button" data-t="fit" title="完整显示 / 填满">⤢</button>';
     tools.addEventListener('pointerdown', e => e.stopPropagation());   // 不触发拖动/换图
     tools.addEventListener('click', async e => {
       const b = e.target.closest('button'); if(!b) return;
@@ -897,6 +919,20 @@
       const img = p.querySelector('img');
       if(!p.classList.contains('filled') || !img.src) return;
       pushUndo();
+      if(b.dataset.t === 'fit'){
+        const r = p.getBoundingClientRect(), ps = page._scale || 1;
+        const W = r.width / ps, H = r.height / ps;
+        const nw = img.naturalWidth, nh = img.naturalHeight;
+        const floor = Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
+        if(p._pz > floor + 0.01){ p._pz = floor; showToast('完整显示：整图不再裁切，可双指放大重新构图'); }
+        else { p._pz = 1; showToast('已填满相框'); }
+        p._px = 0; p._py = 0;
+        img.style.transformOrigin = 'center';
+        img.style.transform = 'translate(0px,0px) scale(' + p._pz + ')';
+        img.style.maxWidth = 'none';
+        saveDraft();
+        return;
+      }
       if(b.dataset.t === 'shape'){
         p.classList.toggle('round');
         saveDraft();
