@@ -702,7 +702,7 @@
   window.addEventListener('orientationchange', ()=> setTimeout(fitPage, 200));
   fitPage();
 
-  /* ---- 预览区手势：空白单指平移、双指捏合缩放（1~3x）、双击复位 ----
+  /* ---- 预览区手势：空白单指平移、双指捏合自由缩放（0.5~6x）、双击复位 ----
      只在起点不是交互元素（照片/贴纸/文字/按钮）时接管，避免冲突 */
   const pv = { s: 1, x: 0, y: 0 };
   function applyPv(){
@@ -741,7 +741,7 @@
       if(pts.size === 2 && pinch0){
         const [a,b] = [...pts.values()];
         const d = Math.hypot(a.x-b.x, a.y-b.y);
-        pv.s = Math.min(3, Math.max(1, pinch0.s * d / (pinch0.d || d)));
+        pv.s = Math.min(6, Math.max(0.5, pinch0.s * d / (pinch0.d || d)));
         const cx = (a.x+b.x)/2, cy = (a.y+b.y)/2;
         pv.x = pinch0.px + (cx - pinch0.cx);
         pv.y = pinch0.py + (cy - pinch0.cy);
