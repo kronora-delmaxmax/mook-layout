@@ -967,6 +967,21 @@
       img.style.transform = '';          // 换图时复位构图
       activeSlot._pz = 1; activeSlot._px = 0; activeSlot._py = 0;
       activeSlot.classList.add('filled');
+      // 全出血版式：默认完整显示不裁切，构图完全交给用户拖动/双指缩放
+      if(activeSlot.closest('.layE')){
+        const fitWhole = () => {
+          const nw = img.naturalWidth, nh = img.naturalHeight;
+          if(!nw || !nh) return;
+          const rc = activeSlot.getBoundingClientRect(), ps = page._scale || 1;
+          const W = rc.width / ps, H = rc.height / ps;
+          activeSlot._pz = Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
+          img.style.transformOrigin = 'center';
+          img.style.transform = 'translate(0px,0px) scale(' + activeSlot._pz + ')';
+          img.style.maxWidth = 'none';
+        };
+        if(img.complete && img.naturalWidth) fitWhole();
+        else img.addEventListener('load', fitWhole, { once: true });
+      }
       applyStroke();
       previewFilter();                   // 新照片套用当前调色
     };
