@@ -1269,6 +1269,30 @@
     throw new Error(lastErr + '，请重试');
   }
 
+  /* ---- 大文件分片重组：静态托管普遍限制单文件大小（常见 25MB 上限），
+     大模型文件切成 8MB 分片发布，运行时拼回并写入 transformers 的
+     Cache Storage（'transformers-cache'），模型加载直接命中缓存 ---- */
+  async function ensureChunkedFile(relPath){
+    const url = new URL(relPath, location.href).href;
+    let store = null;
+    try{ store = await caches.open('transformers-cache'); }catch(e){ return; } // 无痕模式等场景跳过
+    try{
+      if(await store.match(url)) return;
+      const manRes = await fetch(relPath + '.parts.json');
+      if(!manRes.ok) return;  // 无分片清单（旧版整文件）则按原样加载
+      const man = await manRes.json();
+      const dir = relPath.replace(/[^/]*$/, '');
+      const bufs = [];
+      for(let i = 0; i < man.parts.length; i++){
+        const r = await fetch(dir + man.parts[i]);
+        if(!r.ok) throw new Error('模型分片缺失: ' + man.parts[i]);
+        bufs.push(await r.arrayBuffer());
+      }
+      await store.put(url, new Response(new Blob(bufs),
+        { headers: { 'Content-Type': 'application/octet-stream' } }));
+    }catch(e){ console.warn('分片重组失败，回退原始加载:', e); }
+  }
+
   /* ---- 视觉事实清单（方法论：识别与创作分离，先建事实、再做推断、标注未知） ---- */
   let captioner = null;
   async function loadTransformers(){
@@ -1291,7 +1315,9 @@
       T.env.localModelPath = 'models/';
       T.env.allowLocalModels = true;
       T.env.allowRemoteModels = false;
+      T.env.useBrowserCache = true;
       chkOp();
+      await ensureChunkedFile('models/Xenova/resnet-50/onnx/model_quantized.onnx');
       captioner = await T.pipeline('image-classification', 'Xenova/resnet-50');
       setStatus('模型就绪，正在识别…');
       chkOp();
