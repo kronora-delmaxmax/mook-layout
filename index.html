@@ -804,6 +804,7 @@
       page.querySelector(sel).style.display = (k===v)?'block':'none';
     });
     resetPv();   // 换版式复位预览缩放平移
+    if(v === 'vE') document.querySelectorAll('.layE .photo.filled').forEach(bleedFitWhole);
   });
 
   /* ---- 纸张切换 ---- */
@@ -824,6 +825,25 @@
       activeSlot = p; fileIn.click();
     });
   });
+
+  /* 全出血完整显示：构图未被用户调整过（pz=1,px=0,py=0）的照片自动适配为整图可见。
+     用于三个入口：新放照片、草稿恢复、切换到全出血版式 */
+  function bleedFitWhole(p){
+    const img = p.querySelector('img');
+    const fit = () => {
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if(!nw || !nh) return;
+      if(p._pz !== 1 || p._px || p._py) return;   // 用户已构图，不动
+      const rc = p.getBoundingClientRect(), ps = page._scale || 1;
+      const W = rc.width / ps, H = rc.height / ps;
+      p._pz = Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
+      img.style.transformOrigin = 'center';
+      img.style.transform = 'translate(0px,0px) scale(' + p._pz + ')';
+      img.style.maxWidth = 'none';
+    };
+    if(img.complete && img.naturalWidth) fit();
+    else img.addEventListener('load', fit, { once: true });
+  }
 
   /* ---- 相框内照片手势：拖动调构图，双指缩放 ---- */
   function attachPhotoGestures(ph){
@@ -968,20 +988,7 @@
       activeSlot._pz = 1; activeSlot._px = 0; activeSlot._py = 0;
       activeSlot.classList.add('filled');
       // 全出血版式：默认完整显示不裁切，构图完全交给用户拖动/双指缩放
-      if(activeSlot.closest('.layE')){
-        const fitWhole = () => {
-          const nw = img.naturalWidth, nh = img.naturalHeight;
-          if(!nw || !nh) return;
-          const rc = activeSlot.getBoundingClientRect(), ps = page._scale || 1;
-          const W = rc.width / ps, H = rc.height / ps;
-          activeSlot._pz = Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
-          img.style.transformOrigin = 'center';
-          img.style.transform = 'translate(0px,0px) scale(' + activeSlot._pz + ')';
-          img.style.maxWidth = 'none';
-        };
-        if(img.complete && img.naturalWidth) fitWhole();
-        else img.addEventListener('load', fitWhole, { once: true });
-      }
+      if(activeSlot.closest('.layE')) bleedFitWhole(activeSlot);
       applyStroke();
       previewFilter();                   // 新照片套用当前调色
     };
@@ -2258,6 +2265,7 @@
           img.style.transform = 'translate(' + p._px + 'px,' + p._py + 'px) scale(' + p._pz + ')';
           img.style.maxWidth = 'none';
         }
+        if(p.closest('.layE')) bleedFitWhole(p);   // 旧草稿的裁切态照片自动转完整显示
       });
       const slist = (d.stickers || []).filter(s => s.cut).sort((a,b) => a.seq - b.seq);
       for(const sd of slist){
