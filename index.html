@@ -702,6 +702,65 @@
   window.addEventListener('orientationchange', ()=> setTimeout(fitPage, 200));
   fitPage();
 
+  /* ---- 预览区手势：空白单指平移、双指捏合缩放（1~3x）、双击复位 ----
+     只在起点不是交互元素（照片/贴纸/文字/按钮）时接管，避免冲突 */
+  const pv = { s: 1, x: 0, y: 0 };
+  function applyPv(){
+    pageWrap.style.transformOrigin = 'center center';
+    pageWrap.style.transform = 'translate(' + pv.x + 'px,' + pv.y + 'px) scale(' + pv.s + ')';
+  }
+  function resetPv(){ pv.s = 1; pv.x = 0; pv.y = 0; applyPv(); }
+  (function(){
+    const pts = new Map();
+    let pan0 = null, pinch0 = null, lastTap = 0;
+    const isInteractive = t => t.closest('.photo,.sticker,.note,.lead-label,[contenteditable],button,a,input,select,.ph-tools,.masthead');
+    const clampPv = () => {
+      const lim = 300 * pv.s;
+      pv.x = Math.max(-lim, Math.min(lim, pv.x));
+      pv.y = Math.max(-lim, Math.min(lim, pv.y));
+    };
+    stage.addEventListener('pointerdown', e => {
+      if(isInteractive(e.target)) return;
+      try{ stage.setPointerCapture(e.pointerId); }catch(_){}
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if(pts.size === 1){
+        pan0 = { x: e.clientX, y: e.clientY, px: pv.x, py: pv.y };
+        const now = Date.now();
+        if(now - lastTap < 300) resetPv();   // 双击复位
+        lastTap = now;
+      }else if(pts.size === 2){
+        const [a,b] = [...pts.values()];
+        pinch0 = { d: Math.hypot(a.x-b.x, a.y-b.y), s: pv.s,
+                   cx: (a.x+b.x)/2, cy: (a.y+b.y)/2, px: pv.x, py: pv.y };
+        pan0 = null;
+      }
+    });
+    stage.addEventListener('pointermove', e => {
+      if(!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if(pts.size === 2 && pinch0){
+        const [a,b] = [...pts.values()];
+        const d = Math.hypot(a.x-b.x, a.y-b.y);
+        pv.s = Math.min(3, Math.max(1, pinch0.s * d / (pinch0.d || d)));
+        const cx = (a.x+b.x)/2, cy = (a.y+b.y)/2;
+        pv.x = pinch0.px + (cx - pinch0.cx);
+        pv.y = pinch0.py + (cy - pinch0.cy);
+        clampPv(); applyPv();
+      }else if(pts.size === 1 && pan0){
+        pv.x = pan0.px + (e.clientX - pan0.x);
+        pv.y = pan0.py + (e.clientY - pan0.y);
+        clampPv(); applyPv();
+      }
+    });
+    const up = e => {
+      pts.delete(e.pointerId);
+      if(pts.size < 2) pinch0 = null;
+      if(pts.size === 0) pan0 = null;
+    };
+    stage.addEventListener('pointerup', up);
+    stage.addEventListener('pointercancel', up);
+  })();
+
   /* 导出尺寸切换 */
   document.getElementById('sizeSel').addEventListener('change', e => {
     const oldH = pageH;
@@ -738,6 +797,7 @@
     Object.entries(lays).forEach(([k,sel])=>{
       page.querySelector(sel).style.display = (k===v)?'block':'none';
     });
+    resetPv();   // 换版式复位预览缩放平移
   });
 
   /* ---- 纸张切换 ---- */
