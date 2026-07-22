@@ -75,8 +75,9 @@
   .tip{font-size:11px;line-height:1.8;color:#8A8271;border-top:1px dashed #C9C2B4;padding-top:12px}
 
   /* ===== 画布区 ===== */
-  .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:36px;overflow:hidden}
-  .pageWrap{position:relative;flex-shrink:0;box-shadow:0 20px 60px rgba(60,50,30,.25)}
+  /* touch-action:none：告知浏览器预览区手势全部自处理，防止页面滚动/缩放抢手势造成卡顿 */
+  .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:36px;overflow:hidden;touch-action:none}
+  .pageWrap{position:relative;flex-shrink:0;box-shadow:0 20px 60px rgba(60,50,30,.25);will-change:transform}
   .page{
     width:600px;height:800px;background:var(--paper);position:relative;
     overflow:hidden;transform-origin:top left;
@@ -705,9 +706,15 @@
   /* ---- 预览区手势：空白单指平移、双指捏合自由缩放（0.5~6x）、双击复位 ----
      只在起点不是交互元素（照片/贴纸/文字/按钮）时接管，避免冲突 */
   const pv = { s: 1, x: 0, y: 0 };
+  let pvRaf = 0;
   function applyPv(){
-    pageWrap.style.transformOrigin = 'center center';
-    pageWrap.style.transform = 'translate(' + pv.x + 'px,' + pv.y + 'px) scale(' + pv.s + ')';
+    // rAF 合并：一帧内多次 pointermove 只写一次样式，避免频繁重排导致卡顿
+    if(pvRaf) return;
+    pvRaf = requestAnimationFrame(() => {
+      pvRaf = 0;
+      pageWrap.style.transformOrigin = 'center center';
+      pageWrap.style.transform = 'translate(' + pv.x + 'px,' + pv.y + 'px) scale(' + pv.s + ')';
+    });
   }
   function resetPv(){ pv.s = 1; pv.x = 0; pv.y = 0; applyPv(); }
   (function(){
