@@ -493,7 +493,6 @@
     <div class="seg" style="margin-top:8px">
       <button id="zTop">置顶</button>
       <button id="zBottom">置底</button>
-      <button id="btnUndo">↩ 撤销</button>
     </div>
     <div class="ai-status" id="cutStatus">选照片抠图；首次加载抠图模型约44MB</div>
   </div>
@@ -519,6 +518,9 @@
     · 手机导出：点导出后在分享面板选<br>「存储图像 / 保存到相册」<br>
     · 电脑导出：自动下载 PNG 文件<br>
     · 草稿自动保存在本机，刷新不丢
+    <button id="btnUndo" disabled style="margin-top:10px;width:100%;padding:8px;font-size:11px;
+      background:#fff;border:1px solid #D8D1C0;border-radius:8px;color:#6E6656;
+      cursor:pointer;font-family:inherit">↩︎ 撤销上一步</button>
     <button id="btnReset" style="margin-top:10px;width:100%;padding:8px;font-size:11px;
       border:1px dashed #C9C2B4;background:transparent;color:#8A8271;border-radius:3px;
       cursor:pointer;font-family:inherit">🗑 清空草稿，重新开始</button>
@@ -647,6 +649,7 @@
   <button data-act="btnAI">✦ 识别</button>
   <button data-act="btnCut">✂ 抠图</button>
   <button data-act="segVariant">▦ 版式</button>
+  <button data-act="btnUndo">↩︎ 撤销</button>
   <button data-act="btnExport" class="primary">↓ 导出</button>
 </nav>
 
@@ -830,6 +833,7 @@
     let moved = false;
     ph.addEventListener('pointerdown', e => {
       if(!ph.classList.contains('filled')) return;   // 未填图时走点击上传
+      pushUndo();
       try{ ph.setPointerCapture(e.pointerId); }catch(_){}
       pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
       moved = false;
@@ -892,6 +896,7 @@
       e.stopPropagation();
       const img = p.querySelector('img');
       if(!p.classList.contains('filled') || !img.src) return;
+      pushUndo();
       if(b.dataset.t === 'shape'){
         p.classList.toggle('round');
         saveDraft();
@@ -917,6 +922,7 @@
       return;
     }
     if(!activeSlot) return;
+    pushUndo();
     const r = new FileReader();
     r.onload = e=>{
       const img = activeSlot.querySelector('img');
@@ -1018,6 +1024,7 @@
     });
   }
   $('btnCollage').addEventListener('click', () => {
+    pushUndo();
     collageOn = !collageOn;
     $('btnCollage').textContent = '胶带拼贴 ' + (collageOn ? 'ON' : 'OFF');
     $('btnCollage').classList.toggle('on', collageOn);
@@ -1027,6 +1034,7 @@
   });
   $('btnReshuffle').addEventListener('click', () => {
     if(!collageOn){ showToast('先开启「胶带拼贴」'); return; }
+    pushUndo();
     applyCollage(true);
     saveDraft();
   });
@@ -1035,6 +1043,7 @@
   function makeDraggable(el, opts){
     let sx = null, sy, ox, oy, dragging = false;
     el.addEventListener('pointerdown', e => {
+      pushUndo();
       if(e.target.classList.contains('ndel')) return;
       try{ el.setPointerCapture(e.pointerId); }catch(_){}
       sx = e.clientX; sy = e.clientY;
@@ -1066,13 +1075,14 @@
 
   /* ---- 手写便签 ---- */
   function addNote(text, x, y){
+    pushUndo();
     const n = document.createElement('div');
     n.className = 'note'; n.contentEditable = true; n.textContent = text || '写点备注…';
     n.style.left = (x == null ? 60 : x) + 'px';
     n.style.top = (y == null ? 480 : y) + 'px';
     const del = document.createElement('span');
     del.className = 'ndel'; del.textContent = '×'; del.contentEditable = false;
-    del.addEventListener('pointerdown', e => { e.stopPropagation(); n.remove(); saveDraft(); });
+    del.addEventListener('pointerdown', e => { e.stopPropagation(); pushUndo(); n.remove(); saveDraft(); });
     n.appendChild(del);
     makeDraggable(n);
     n.addEventListener('input', saveDraft);
@@ -1088,6 +1098,7 @@
   let leadSeq = 0, pickingLead = false;
   const leadSvg = $('leadSvg');
   function addLead(ax, ay, lx, ly, text, num){
+    pushUndo();
     leadSeq = num || (leadSeq + 1);
     const dot = document.createElement('div');
     dot.className = 'lead-dot'; dot.textContent = leadSeq;
@@ -1100,7 +1111,7 @@
     const del = document.createElement('span');
     del.className = 'ndel'; del.textContent = '×'; del.contentEditable = false;
     del.addEventListener('pointerdown', e => {
-      e.stopPropagation();
+      e.stopPropagation(); pushUndo();
       dot.remove(); line.remove(); lab.remove(); saveDraft();
     });
     lab.appendChild(del);
@@ -1188,6 +1199,7 @@
   /* 编辑文字时键盘弹出会遮挡：聚焦后若文字不在可视区才滚动（吸顶预览内的文字不动） */
   page.addEventListener('focusin', e => {
     if(!e.target.isContentEditable) return;
+    pushUndo();
     setTimeout(() => {
       const r = e.target.getBoundingClientRect();
       if(r.top < 0 || r.bottom > innerHeight)
@@ -1600,6 +1612,7 @@
   }
 
   function fillAI(r){
+    pushUndo();
     const t = r.title || '', s = r.subtitle || '', en = r.english || '';
     const caps = Array.isArray(r.captions) ? r.captions : [];
     setText('title', t.replace(/^.*[｜|]/,''));  // 竖排标题只保留主题部分
@@ -1752,7 +1765,6 @@
     if(hint) hint.style.display = list.length ? 'none' : 'block';
   }
   /* 贴纸操作历史（撤销用）：保留元素引用，监听器不失效 */
-  const stickerHistory = [];
   let zTopN = 21, zBottomN = 20;
 
   function showGuides(v, h){
@@ -1766,6 +1778,7 @@
     const pts = new Map();
     st.addEventListener('pointerdown', e => {
       selectSticker(st);
+      pushUndo();
       try{ st.setPointerCapture(e.pointerId); }catch(_){}
       pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
       st._startX = st._x; st._startY = st._y; st._startS = st._s;
@@ -1821,6 +1834,7 @@
   }
 
   async function addSticker(cutoutURL, photoURL, maskURL){
+    pushUndo();
     const st = document.createElement('div');
     st.className = 'sticker';
     st.dataset.cutout = cutoutURL;
@@ -1839,8 +1853,7 @@
     const del = document.createElement('div'); del.className = 'del'; del.textContent = '×';
     del.addEventListener('pointerdown', e => {
       e.stopPropagation();
-      stickerHistory.push({ type:'del', st });
-      if(stickerHistory.length > 20) stickerHistory.shift();
+      pushUndo();
       st.remove(); renumberTags(); saveDraft();
     });
     st.appendChild(del);
@@ -1877,26 +1890,15 @@
     applyTransform(st);
     renumberTags();
     bindSticker(st);
-    stickerHistory.push({ type:'add', st });
-    if(stickerHistory.length > 20) stickerHistory.shift();
 
     selectSticker(st);
     await rebakeSticker(st);
     return st;
   }
 
-  /* 置顶 / 置底 / 撤销 */
+  /* 置顶 / 置底（撤销由全局撤销系统统一处理） */
   $('zTop').addEventListener('click', () => { if(activeSticker) activeSticker.style.zIndex = ++zTopN; });
   $('zBottom').addEventListener('click', () => { if(activeSticker) activeSticker.style.zIndex = --zBottomN; });
-  $('btnUndo').addEventListener('click', () => {
-    const last = stickerHistory.pop();
-    if(!last){ setCut('没有可撤销的贴纸操作'); return; }
-    if(last.type === 'add'){ last.st.remove(); }
-    else { page.appendChild(last.st); applyTransform(last.st); }
-    renumberTags();
-    saveDraft();
-    setCut('已撤销', 'ok');
-  });
   /* 蒙版微调编辑器：返回 Promise<编辑后的蒙版画布 | null(取消)> */
   function openMaskEditor(photo, mask){
     return new Promise(resolve => {
@@ -2164,10 +2166,7 @@
       }
     }, 600);
   }
-  async function loadDraft(){
-    let d = null;
-    try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
-    if(!d || d.v !== 1) return;
+  async function applyDraft(d){
     try{
       const pb = document.querySelector('#segPaper button[data-p="' + (d.paper || '') + '"]');
       if(pb) pb.click();   // 先纸张后版式：版式切换会重写 className，需要保留纸张类
@@ -2225,7 +2224,13 @@
       previewFilter();
       renumberTags();
       if(slist.length || (d.photos||[]).some(Boolean)) showToast('已恢复上次草稿');
-    }catch(e){ /* 草稿损坏则忽略，从空白开始 */ }
+    }catch(e){ /* 数据损坏则忽略 */ }
+  }
+  async function loadDraft(){
+    let d = null;
+    try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
+    if(!d || d.v !== 1) return;
+    await applyDraft(d);
   }
   /* 保存挂钩：文字输入、版式/字号/尺寸/描边变更、图片加载完成、定时兜底 */
   page.addEventListener('input', saveDraft);
@@ -2237,11 +2242,97 @@
   strokeW.addEventListener('change', saveDraft);
   document.getElementById('swatches').addEventListener('click', saveDraft);
   setInterval(saveDraft, 15000);   // 兜底：手势等未挂钩的变更也能存上
-  document.getElementById('btnReset').addEventListener('click', () => {
-    if(confirm('清空草稿并恢复初始页面？')){
-      localStorage.removeItem(DRAFT_KEY);
-      location.reload();
+  /* ---- 撤销系统：操作前快照（复用草稿采集/恢复），最多 20 步 ----
+     设计要点：快照在「变更前」采集；恢复时先清空动态元素再 applyDraft；
+     undoLock 防止恢复过程本身又被记录 */
+  const undoStack = [];
+  let undoLock = false;
+  const initialTexts = {};   // 各文字栏位的出厂状态（内容 + 是否提示态）
+  document.querySelectorAll('[data-k]').forEach(el => {
+    initialTexts[el.dataset.k] = { t: el.textContent, hint: el.classList.contains('hint') };
+  });
+  const initialMast = [...document.querySelectorAll('.masthead span')].map(s => ({
+    t: s.textContent, hint: s.classList.contains('hint') }));
+  const initialFolio = document.querySelector('.folio').textContent;
+  function pushUndo(){
+    if(undoLock || !draftReady) return;
+    try{
+      const snap = JSON.stringify(collectDraft(1));
+      if(undoStack[undoStack.length - 1] === snap) return;   // 无变化不记
+      undoStack.push(snap);
+      if(undoStack.length > 20) undoStack.shift();
+      $('btnUndo').disabled = false;
+    }catch(e){}
+  }
+  function clearDynamic(){
+    selectSticker(null);
+    document.querySelectorAll('.sticker').forEach(s => s.remove());
+    document.querySelectorAll('.note').forEach(n => n.remove());
+    document.querySelectorAll('.lead-label,.lead-dot').forEach(l => l.remove());
+    leadSvg.innerHTML = '';
+    stickerSeq = 0; leadSeq = 0;
+    document.querySelectorAll('.photo').forEach(p => {
+      p.classList.remove('filled', 'round', 'tilt', 'tape');
+      p.style.transform = '';
+      const img = p.querySelector('img');
+      img.removeAttribute('src'); img.style.transform = ''; img.style.maxWidth = '';
+      p._pz = 1; p._px = 0; p._py = 0; p._tilt = null; p._origSrc = null;
+    });
+    document.querySelectorAll('[data-k]').forEach(el => {
+      const d = initialTexts[el.dataset.k]; if(!d) return;
+      el.textContent = d.t; el.classList.toggle('hint', d.hint);
+    });
+    const masts = document.querySelectorAll('.masthead span');
+    initialMast.forEach((d, i) => {
+      if(masts[i]){ masts[i].textContent = d.t; masts[i].classList.toggle('hint', d.hint); }
+    });
+    document.querySelector('.folio').textContent = initialFolio;
+    if(collageOn){
+      collageOn = false;
+      $('btnCollage').textContent = '胶带拼贴 OFF';
+      $('btnCollage').classList.remove('on');
     }
+  }
+  async function doUndo(){
+    if(!undoStack.length || undoLock) return;
+    undoLock = true;
+    try{
+      clearDynamic();
+      await applyDraft(JSON.parse(undoStack.pop()));
+      saveDraft();
+      showToast('已撤销一步');
+    }catch(e){ showToast('撤销失败，请重试'); }
+    undoLock = false;
+    $('btnUndo').disabled = undoStack.length === 0;
+  }
+  $('btnUndo').addEventListener('click', doUndo);
+  document.addEventListener('keydown', e => {
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); doUndo(); }
+  });
+  /* 版式/纸张/尺寸/描边/调色/字号的变更前快照（捕获阶段，先于 input/change） */
+  ['segVariant','segPaper','sizeSel','swatches','strokeW'].forEach(id => {
+    const el = $(id); if(el) el.addEventListener('pointerdown', pushUndo, true);
+  });
+  [tScale, bScale, fBri, fCon, fSat, fWarm].forEach(el =>
+    el.addEventListener('pointerdown', pushUndo, true));
+
+  /* 两段式清空：不依赖 confirm()（WKWebView 等环境会静默吞掉弹窗） */
+  let resetArmed = null;
+  document.getElementById('btnReset').addEventListener('click', e => {
+    const b = e.currentTarget;
+    if(!resetArmed){
+      b.textContent = '⚠ 再点一次确认清空';
+      b.style.color = '#B23B22'; b.style.borderColor = '#B23B22';
+      resetArmed = setTimeout(() => {
+        resetArmed = null;
+        b.textContent = '🗑 清空草稿，重新开始';
+        b.style.color = ''; b.style.borderColor = '';
+      }, 3000);
+      return;
+    }
+    clearTimeout(resetArmed); resetArmed = null;
+    localStorage.removeItem(DRAFT_KEY);
+    location.reload();
   });
   await loadDraft();
   draftReady = true;
