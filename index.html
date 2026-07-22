@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>刊 · 朝食特辑 — 杂志排版原型</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232B2620'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23F3EFE6' font-family='serif'%3E刊%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Special+Elite&display=swap" rel="stylesheet">
+<link href="vendor/fonts.css" rel="stylesheet">
 <script src="vendor/html2canvas.min.js"></script>
 <style>
   :root{
@@ -1273,10 +1272,8 @@
   /* ---- 视觉事实清单（方法论：识别与创作分离，先建事实、再做推断、标注未知） ---- */
   let captioner = null;
   async function loadTransformers(){
-    // 优先本地运行时（零外部依赖），失败再尝试公共 CDN
-    const sources = ['./vendor/transformers.js',
-                     'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3',
-                     'https://unpkg.com/@huggingface/transformers@3.3.3'];
+    // 纯本地运行时，零外部依赖（发布环境无外网也能工作）
+    const sources = ['./vendor/transformers.js'];
     let lastErr;
     for(const src of sources){
       try{
