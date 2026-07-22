@@ -826,23 +826,37 @@
     });
   });
 
-  /* 全出血完整显示：构图未被用户调整过（pz=1,px=0,py=0）的照片自动适配为整图可见。
-     用于三个入口：新放照片、草稿恢复、切换到全出血版式 */
+  /* ---- 照片显式布局（弃用 object-fit：它先把图裁了，变换救不回来）----
+     按图片内容直接算出摆放盒子的宽高位置：
+       'cover'   填满相框（允许裁切，杂志相框默认）
+       'contain' 整图完整显示（全出血默认，零裁切）
+     手势的 translate/scale 在此盒子上叠加 */
+  function layoutPhoto(p, mode){
+    const img = p.querySelector('img');
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    if(!nw || !nh) return;
+    const rc = p.getBoundingClientRect(), ps = page._scale || 1;
+    const W = rc.width / ps, H = rc.height / ps;
+    const s = mode === 'contain' ? Math.min(W / nw, H / nh) : Math.max(W / nw, H / nh);
+    p._bw = nw * s; p._bh = nh * s;   // 基础盒尺寸（设计坐标 px）
+    p._fit = mode;
+    p._pz = 1; p._px = 0; p._py = 0;
+    img.style.position = 'absolute';
+    img.style.objectFit = 'fill';
+    img.style.width = p._bw + 'px';
+    img.style.height = p._bh + 'px';
+    img.style.left = ((W - p._bw) / 2) + 'px';
+    img.style.top = ((H - p._bh) / 2) + 'px';
+    img.style.transformOrigin = 'center';
+    img.style.transform = 'translate(0px,0px) scale(1)';
+    img.style.maxWidth = 'none';
+  }
+  /* 全出血完整显示：构图未被用户调整过的照片自动转 contain */
   function bleedFitWhole(p){
     const img = p.querySelector('img');
-    const fit = () => {
-      const nw = img.naturalWidth, nh = img.naturalHeight;
-      if(!nw || !nh) return;
-      if(p._pz !== 1 || p._px || p._py) return;   // 用户已构图，不动
-      const rc = p.getBoundingClientRect(), ps = page._scale || 1;
-      const W = rc.width / ps, H = rc.height / ps;
-      p._pz = Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
-      img.style.transformOrigin = 'center';
-      img.style.transform = 'translate(0px,0px) scale(' + p._pz + ')';
-      img.style.maxWidth = 'none';
-    };
-    if(img.complete && img.naturalWidth) fit();
-    else img.addEventListener('load', fit, { once: true });
+    const go = () => { if(p._pz === 1 && !p._px && !p._py) layoutPhoto(p, 'contain'); };
+    if(img.complete && img.naturalWidth) go();
+    else img.addEventListener('load', go, { once: true });
   }
 
   /* ---- 相框内照片手势：拖动调构图，双指缩放 ---- */
@@ -853,19 +867,16 @@
       const r = ph.getBoundingClientRect(), ps = page._scale || 1;
       return { W: r.width / ps, H: r.height / ps };
     };
-    const pzFloor = () => {   // 缩到下限时整图完整可见（contain），不再被裁切
-      const nw = img.naturalWidth, nh = img.naturalHeight;
-      if(!nw || !nh) return 1;
+    const pzFloor = () => {   // 缩到下限时整图完整可见，不再裁切
+      if(!ph._bw) return 1;
       const { W, H } = frameSize();
-      return Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
+      return Math.min(1, Math.min(W / ph._bw, H / ph._bh));
     };
-    const clampPan = () => {   // 图片大于相框：不许拖出空边；小于相框：不许拖出相框
-      const nw = img.naturalWidth, nh = img.naturalHeight;
-      if(!nw || !nh) return;
+    const clampPan = () => {   // 图大于相框：不许拖出空边；小于相框：不许拖出相框
+      if(!ph._bw) return;
       const { W, H } = frameSize();
-      const s = Math.max(W / nw, H / nh);
-      const mx = Math.abs(nw * s * ph._pz - W) / 2;
-      const my = Math.abs(nh * s * ph._pz - H) / 2;
+      const mx = Math.abs(ph._bw * ph._pz - W) / 2;
+      const my = Math.abs(ph._bh * ph._pz - H) / 2;
       ph._px = Math.max(-mx, Math.min(mx, ph._px));
       ph._py = Math.max(-my, Math.min(my, ph._py));
     };
@@ -940,16 +951,9 @@
       if(!p.classList.contains('filled') || !img.src) return;
       pushUndo();
       if(b.dataset.t === 'fit'){
-        const r = p.getBoundingClientRect(), ps = page._scale || 1;
-        const W = r.width / ps, H = r.height / ps;
-        const nw = img.naturalWidth, nh = img.naturalHeight;
-        const floor = Math.min(W / nw, H / nh) / Math.max(W / nw, H / nh);
-        if(p._pz > floor + 0.01){ p._pz = floor; showToast('完整显示：整图不再裁切，可双指放大重新构图'); }
-        else { p._pz = 1; showToast('已填满相框'); }
-        p._px = 0; p._py = 0;
-        img.style.transformOrigin = 'center';
-        img.style.transform = 'translate(0px,0px) scale(' + p._pz + ')';
-        img.style.maxWidth = 'none';
+        const toContain = p._fit !== 'contain';
+        layoutPhoto(p, toContain ? 'contain' : 'cover');
+        showToast(toContain ? '完整显示：整图不再裁切，可双指放大重新构图' : '已填满相框');
         saveDraft();
         return;
       }
@@ -963,6 +967,8 @@
       try{
         const rot = b.dataset.t === 'rot';
         img.src = await bakeRotFlip(img.src, rot);
+        await new Promise(res => { img.onload = res; img.onerror = res; });   // 等烘焙图就绪
+        layoutPhoto(p, p._fit || 'cover');   // 图片尺寸变了，按原模式重新摆放
         if(p._origSrc) p._origSrc = await bakeRotFlip(p._origSrc, rot);   // 调色基准同步旋转
         showToast(rot ? '已旋转 90°' : '已左右翻转');
       }finally{ b.disabled = false; }
@@ -984,11 +990,11 @@
       const img = activeSlot.querySelector('img');
       img.src = e.target.result;
       activeSlot._origSrc = e.target.result;   // 调色基准：永远保留最干净的原片
-      img.style.transform = '';          // 换图时复位构图
-      activeSlot._pz = 1; activeSlot._px = 0; activeSlot._py = 0;
       activeSlot.classList.add('filled');
-      // 全出血版式：默认完整显示不裁切，构图完全交给用户拖动/双指缩放
-      if(activeSlot.closest('.layE')) bleedFitWhole(activeSlot);
+      // 全出血默认整图完整显示（contain），其他版式默认填满（cover），构图由用户掌控
+      const place = () => layoutPhoto(activeSlot, activeSlot.closest('.layE') ? 'contain' : 'cover');
+      if(img.complete && img.naturalWidth) place();
+      else img.addEventListener('load', place, { once: true });
       applyStroke();
       previewFilter();                   // 新照片套用当前调色
     };
@@ -2193,7 +2199,8 @@
       photos: [...document.querySelectorAll('.photo')].map(p => {
         if(!p.classList.contains('filled')) return null;
         return { src: shrinkForDraft(p.querySelector('img')), pz: p._pz||1, px: p._px||0, py: p._py||0,
-                 tilt: (p._tilt != null ? p._tilt : null), round: p.classList.contains('round') };
+                 tilt: (p._tilt != null ? p._tilt : null), round: p.classList.contains('round'),
+                 fit: p._fit || 'cover', bw: p._bw || 0, bh: p._bh || 0 };
       }),
       notes: [...page.querySelectorAll('.note')].map(n => ({
         t: ownText(n), x: parseFloat(n.style.left), y: parseFloat(n.style.top),
@@ -2260,12 +2267,24 @@
         p._pz = pd.pz || 1; p._px = pd.px || 0; p._py = pd.py || 0;
         p._tilt = (pd.tilt != null ? pd.tilt : null);
         p.classList.toggle('round', !!pd.round);
-        if(p._pz !== 1 || p._px || p._py){
+        if(pd.bw){
+          // 新版草稿：恢复显式盒子 + 构图变换
+          p._bw = pd.bw; p._bh = pd.bh; p._fit = pd.fit || 'cover';
+          const rc = p.getBoundingClientRect(), ps = page._scale || 1;
+          const W = rc.width / ps, H = rc.height / ps;
+          img.style.position = 'absolute'; img.style.objectFit = 'fill';
+          img.style.width = pd.bw + 'px'; img.style.height = pd.bh + 'px';
+          img.style.left = ((W - pd.bw) / 2) + 'px'; img.style.top = ((H - pd.bh) / 2) + 'px';
           img.style.transformOrigin = 'center';
           img.style.transform = 'translate(' + p._px + 'px,' + p._py + 'px) scale(' + p._pz + ')';
           img.style.maxWidth = 'none';
+        }else{
+          // 旧草稿迁移：旧 pz/px/py 基于错误的 object-fit 模型，弃用，按版式重新摆放
+          p._pz = 1; p._px = 0; p._py = 0;
+          const place = () => layoutPhoto(p, p.closest('.layE') ? 'contain' : 'cover');
+          if(img.complete && img.naturalWidth) place();
+          else img.addEventListener('load', place, { once: true });
         }
-        if(p.closest('.layE')) bleedFitWhole(p);   // 旧草稿的裁切态照片自动转完整显示
       });
       const slist = (d.stickers || []).filter(s => s.cut).sort((a,b) => a.seq - b.seq);
       for(const sd of slist){
@@ -2334,8 +2353,10 @@
       p.classList.remove('filled', 'round', 'tilt', 'tape');
       p.style.transform = '';
       const img = p.querySelector('img');
-      img.removeAttribute('src'); img.style.transform = ''; img.style.maxWidth = '';
+      img.removeAttribute('src');
+      img.style.cssText = '';   // 清掉显式盒子/变换/描边，回到 CSS 默认
       p._pz = 1; p._px = 0; p._py = 0; p._tilt = null; p._origSrc = null;
+      p._bw = 0; p._bh = 0; p._fit = null;
     });
     document.querySelectorAll('[data-k]').forEach(el => {
       const d = initialTexts[el.dataset.k]; if(!d) return;
@@ -2422,26 +2443,8 @@
       }
     }
     const restoreFilter = () => filtered.forEach(([img, src, fl]) => { img.src = src; img.style.filter = fl; });
-    // html2canvas 不支持 object-fit:cover（会把照片拉伸变形），
-    // 导出前把 cover 换算成显式尺寸+位移，overflow 裁剪，导完恢复
-    const fitted = [];
-    document.querySelectorAll('.photo.filled img').forEach(img => {
-      const W = img.clientWidth, H = img.clientHeight;
-      const nw = img.naturalWidth, nh = img.naturalHeight;
-      if(!nw || !nh || !W || !H) return;
-      const s = Math.max(W/nw, H/nh);
-      const w2 = nw*s, h2 = nh*s;
-      fitted.push([img, img.style.cssText]);
-      img.style.position = 'absolute';
-      img.style.left = (img.offsetLeft + (W - w2)/2) + 'px';
-      img.style.top = (img.offsetTop + (H - h2)/2) + 'px';
-      img.style.width = w2 + 'px';
-      img.style.height = h2 + 'px';
-      img.style.maxWidth = 'none';
-      img.style.objectFit = 'fill';   // w2×h2 与原图同比例，fill 不变形
-    });
-    const restoreFit = () => fitted.forEach(([img, css]) => img.style.cssText = css);
-    const restoreAll = () => { restoreFit(); restoreFilter(); };
+    // 照片已是显式盒子 + transform（弃用 object-fit），html2canvas 原生支持，无需换算
+    const restoreAll = () => { restoreFilter(); };
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
       page.style.transform = prevT;
       page.style.zoom = prevZ;
