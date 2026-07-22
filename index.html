@@ -436,6 +436,7 @@
         <option value="moonshot">Kimi（Moonshot 视觉版）</option>
         <option value="bailian">通义千问 VL（阿里百炼）</option>
         <option value="siliconflow">硅基流动（Qwen2.5-VL）</option>
+        <option value="deepseek">DeepSeek 配文（本地识图 + DS 写作，推荐）</option>
         <option value="custom">自定义 OpenAI 兼容接口</option>
       </select>
     </div>
@@ -960,6 +961,7 @@
     moonshot:    { base:'https://api.moonshot.cn/v1',                          model:'moonshot-v1-8k-vision-preview' },
     bailian:     { base:'https://dashscope.aliyuncs.com/compatible-mode/v1',   model:'qwen-vl-max' },
     siliconflow: { base:'https://api.siliconflow.cn/v1',                       model:'Qwen/Qwen2.5-VL-72B-Instruct' },
+    deepseek:    { base:'https://api.deepseek.com/v1',                         model:'deepseek-v4-flash' },
     custom:      { base:'', model:'' }
   };
   const $ = id => document.getElementById(id);
@@ -1236,23 +1238,29 @@
 图注要求：每条20~40字；前两条具体描写照片中的实物（名称、质感、细节），后两条可以写氛围与感受；语言冷静细腻，像编辑在实物旁做的笔记；不要用emoji。
 重要：直接输出 JSON 本体，不要用 markdown 代码块包裹，不要输出思考过程。`;
 
-  /* ---- 免费文本接口润色（CORS 开放，浏览器直连，自动重试3次） ---- */
-  async function polishText(description){
+  /* ---- 文本润色：默认 pollinations 免费接口；传 opts 时走自带端点（如 DeepSeek） ---- */
+  async function polishText(description, opts){
+    // opts = { base, model, key }：DeepSeek 等 OpenAI 兼容文本模型（只处理文字事实清单，不发图片）
+    const url = opts ? opts.base.replace(/\/+$/,'') + '/chat/completions'
+                     : 'https://text.pollinations.ai/openai';
+    const headers = { 'Content-Type':'application/json' };
+    if(opts) headers['Authorization'] = 'Bearer ' + opts.key;
+    const modelName = opts ? opts.model : 'openai';
     let lastErr = '';
     for(let i=0;i<3;i++){
       chkOp();
       try{
-        const resp = await fetch('https://text.pollinations.ai/openai', {
-          method:'POST', headers:{'Content-Type':'application/json'},
+        const resp = await withTimeout(fetch(url, {
+          method:'POST', headers:headers,
           body: JSON.stringify({
-            model:'openai',
+            model:modelName,
             messages:[
               { role:'system', content:SYSTEM_PROMPT },
               { role:'user', content:description + '。请严格基于事实清单撰写杂志文案，清单中没有的具体品牌与实物不要编造，氛围描写可以发挥。' }
             ],
             max_tokens:900
           })
-        });
+        }), 20000);   // 单次润色请求 20s 超时，弱网快速降级
         if(!resp.ok){ lastErr = '润色接口繁忙（'+resp.status+'）'; continue; }
         const d = await resp.json();
         const text = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '';
@@ -1313,7 +1321,7 @@
       T.env.useBrowserCache = true;
       chkOp();
       await ensureChunkedFile('models/Xenova/resnet-50/onnx/model_quantized.onnx');
-      captioner = await T.pipeline('image-classification', 'Xenova/resnet-50');
+      captioner = await T.pipeline('image-classification', 'Xenova/resnet-50', { dtype:'q8' });
       setStatus('模型就绪，正在识别…');
       chkOp();
     }
@@ -1525,18 +1533,26 @@
     const btn = $('btnAI'); btn.disabled = true;
     opBegin();
     try{
-      if(aiPreset.value === 'builtin' || !aiKey.value.trim()){
-        // 免 Key 路径：建立视觉事实清单 → 云端润色（失败则本地句式兜底）
-        if(aiPreset.value !== 'builtin') setStatus('未填 Key，自动使用免 Key 本地识图…');
+      if(aiPreset.value === 'builtin' || aiPreset.value === 'deepseek' || !aiKey.value.trim()){
+        // 文本流水线：本地建立视觉事实清单 → 文本模型写作（DeepSeek / pollinations / 本地句式）
+        const useDS = aiPreset.value === 'deepseek' && aiKey.value.trim();
+        if(aiPreset.value !== 'builtin' && !useDS) setStatus('未填 Key，自动使用免 Key 本地识图…');
         const facts = await buildFacts(imgEl);
         if(!facts.objects.length) throw new Error('本地识图无结果');
         renderFacts(facts);
         const names = facts.mapped.map(o => o.cn);
-        setStatus('事实清单已建立，正在润色文案…');
+        setStatus(useDS ? '事实清单已建立，DeepSeek 正在撰写文案…' : '事实清单已建立，正在润色文案…');
         const factsText = '视觉事实清单：' + JSON.stringify(facts.seen) + '；编辑推断：' + facts.guess;
         let result;
         try{
-          result = await polishText(factsText);
+          try{
+            result = await polishText(factsText, useDS ? {
+              base: aiBase.value.trim(), model: aiModel.value.trim(), key: aiKey.value.trim()
+            } : null);
+          }catch(e1){
+            if(!useDS) throw e1;
+            result = await polishText(factsText);   // DeepSeek 失败时兜底免费接口
+          }
         }catch(e){
           fillAI(weaveLocal(facts));
           setStatus('识别到：' + (names.slice(0,3).join('、') || facts.objects[0].en) + '｜云端接口不可用，本次为本地生成', 'ok');
