@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232B2620'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23F3EFE6' font-family='serif'%3E刊%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Special+Elite&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
 <style>
   :root{
     --paper:#FAF7F0; --ink:#2B2B2B; --accent:#E85D3D; --hair:#C9C2B4;
@@ -1274,14 +1274,14 @@
   let captioner = null;
   async function loadTransformers(){
     // 优先本地运行时（零外部依赖），失败再尝试公共 CDN
-    const sources = ['/vendor/transformers.js',
+    const sources = ['./vendor/transformers.js',
                      'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3',
                      'https://unpkg.com/@huggingface/transformers@3.3.3'];
     let lastErr;
     for(const src of sources){
       try{
         // 本地运行时包含 23MB WASM 编译，需要较长等待；CDN 作为后备
-        return await withTimeout(import(src), src.startsWith('/') ? 120000 : 45000);
+        return await withTimeout(import(src), src.startsWith('http') ? 45000 : 120000);
       }catch(e){ lastErr = e; }
     }
     throw lastErr || new Error('视觉引擎加载失败');
@@ -1291,7 +1291,7 @@
       setStatus('加载视觉引擎中（首次含编译，约1~2分钟）…');
       const T = await loadTransformers();
       setStatus('视觉引擎就绪，正在加载识别模型…');
-      T.env.localModelPath = '/models/';
+      T.env.localModelPath = 'models/';
       T.env.allowLocalModels = true;
       T.env.allowRemoteModels = false;
       chkOp();
@@ -1600,7 +1600,7 @@
     if(rmbgModel) return;
     setCut('加载抠图模型中（约44MB，首次较慢）…');
     const T = await loadTransformers();
-    T.env.localModelPath = '/models/';
+    T.env.localModelPath = 'models/';
     T.env.allowLocalModels = true;
     T.env.allowRemoteModels = false;
     try{ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4', { dtype:'q8' }); }
