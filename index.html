@@ -1734,6 +1734,8 @@
     T.env.localModelPath = 'models/';
     T.env.allowLocalModels = true;
     T.env.allowRemoteModels = false;
+    T.env.useBrowserCache = true;
+    await ensureChunkedFile('models/briaai/RMBG-1.4/onnx/model_quantized.onnx');
     try{ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4', { dtype:'q8' }); }
     catch(e){ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4'); }
     rmbgProc = await T.AutoProcessor.from_pretrained('briaai/RMBG-1.4');
