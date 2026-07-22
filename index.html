@@ -1355,19 +1355,22 @@
   }
   /* 兼容版模块加载：用 module script 注入代替动态 import()，老内核也能解析 */
   function importModule(src){
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const key = '__mod_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
       const s = document.createElement('script');
       s.type = 'module';
-      s.onload = () => {
-        const m = window[key];
-        try{ delete window[key]; }catch(e){ window[key] = undefined; }
-        s.remove();
-        if(m) resolve(m); else reject(new Error('模块加载失败'));
-      };
-      s.onerror = () => { s.remove(); reject(new Error('模块加载失败')); };
+      // 内联 module 的 onload 在部分内核不触发，改为轮询挂载结果；失败由外层 withTimeout 兜底
       s.textContent = 'import * as m from "' + src + '"; window["' + key + '"] = m;';
       document.head.appendChild(s);
+      const t = setInterval(() => {
+        const m = window[key];
+        if(m){
+          clearInterval(t);
+          try{ delete window[key]; }catch(e){ window[key] = undefined; }
+          s.remove();
+          resolve(m);
+        }
+      }, 100);
     });
   }
 
