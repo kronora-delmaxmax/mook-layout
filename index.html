@@ -1650,6 +1650,7 @@
       T.env.allowLocalModels = true;
       T.env.allowRemoteModels = false;
       T.env.useBrowserCache = true;
+      T.env.backends.onnx.wasm.wasmPaths = './vendor/';   // ORT 运行时走本地，不依赖 CDN（离线/内网可用）
       chkOp();
       await ensureChunkedFile('models/Xenova/resnet-50/onnx/model_quantized.onnx');
       captioner = await T.pipeline('image-classification', 'Xenova/resnet-50', { dtype:'q8' });
@@ -1990,6 +1991,7 @@
     T.env.allowLocalModels = true;
     T.env.allowRemoteModels = false;
     T.env.useBrowserCache = true;
+    T.env.backends.onnx.wasm.wasmPaths = './vendor/';   // ORT 运行时走本地
     await ensureChunkedFile('models/briaai/RMBG-1.4/onnx/model_quantized.onnx');
     try{ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4', { dtype:'q8' }); }
     catch(e){ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4'); }
