@@ -386,6 +386,8 @@
     color:#FAF7F0;font-size:15px;cursor:pointer;font-family:inherit;touch-action:manipulation;
   }
   .exporting .ph-tools{display:none!important}
+  /* 空相框的占位 img 无图源，导出时隐藏避免 html2canvas 报 Error loading image */
+  .exporting .photo:not(.filled) img{display:none!important}
   /* 栏位提示态：未填写时显示灰色栏位名，编辑或 AI 生成后恢复正文色 */
   [contenteditable].hint{color:#BDB5A2!important}
   .layE [contenteditable].hint{color:rgba(255,255,255,.55)!important}
