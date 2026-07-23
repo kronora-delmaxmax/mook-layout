@@ -10,6 +10,7 @@
 <style>
   :root{
     --paper:#FAF7F0; --ink:#2B2B2B; --accent:#E85D3D; --hair:#C9C2B4;
+    --en:'Playfair Display',serif;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -997,12 +998,18 @@
     // 草稿恢复时被延迟布局的照片（当时所在版式隐藏、拿不到尺寸）：现在补算
     page.querySelectorAll(lays[v] + ' .photo.filled').forEach(p => {
       if(p._relayout){
-        const img = p.querySelector('img');
-        const rc = p.getBoundingClientRect(), ps = page._scale || 1;
-        const W = rc.width / ps, H = rc.height / ps;
-        if(W && H && p._bw){
-          img.style.left = ((W - p._bw) / 2) + 'px';
-          img.style.top = ((H - p._bh) / 2) + 'px';
+        if(p._bw){
+          const img = p.querySelector('img');
+          const rc = p.getBoundingClientRect(), ps = page._scale || 1;
+          const W = rc.width / ps, H = rc.height / ps;
+          if(W && H){
+            img.style.left = ((W - p._bw) / 2) + 'px';
+            img.style.top = ((H - p._bh) / 2) + 'px';
+            p._relayout = false;
+          }
+        }else{
+          // 旧草稿迁移照片：没有显式盒子，按版式默认重新摆放
+          layoutPhoto(p, p.closest('.layE') ? 'contain' : 'cover');
           p._relayout = false;
         }
       }
@@ -1457,7 +1464,7 @@
     saveCfg();
   }
   function saveCfg(){
-    localStorage.setItem('mook-ai', JSON.stringify({preset:aiPreset.value, key:aiKey.value}));
+    try{ localStorage.setItem('mook-ai', JSON.stringify({preset:aiPreset.value, key:aiKey.value})); }catch(e){}
   }
   aiPreset.addEventListener('change', syncFields);
   aiKey.addEventListener('input', saveCfg);
@@ -2543,7 +2550,10 @@
         }else{
           // 旧草稿迁移：旧 pz/px/py 基于错误的 object-fit 模型，弃用，按版式重新摆放
           p._pz = 1; p._px = 0; p._py = 0;
-          const place = () => layoutPhoto(p, p.closest('.layE') ? 'contain' : 'cover');
+          const place = () => {
+            if(!p.getBoundingClientRect().width){ p._relayout = true; return; }  // 版式隐藏中：延迟
+            layoutPhoto(p, p.closest('.layE') ? 'contain' : 'cover');
+          };
           if(img.complete && img.naturalWidth) place();
           else img.addEventListener('load', place, { once: true });
         }
@@ -2649,13 +2659,18 @@
   }
   $('btnUndo').addEventListener('click', doUndo);
   document.addEventListener('keydown', e => {
-    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); doUndo(); }
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){
+      if(e.target && e.target.isContentEditable) return;   // 文本编辑中：原生文本撤销优先
+      e.preventDefault(); doUndo();
+    }
   });
   /* 版式/纸张/尺寸/描边/调色/字号的变更前快照（捕获阶段，先于 input/change） */
   /* ---- 新手引导卡：只出现一次 ---- */
-  if(!localStorage.getItem('mooklab_seen_guide')) $('guide').style.display = 'flex';
+  try{
+    if(!localStorage.getItem('mooklab_seen_guide')) $('guide').style.display = 'flex';
+  }catch(e){ $('guide').style.display = 'flex'; }   // 存储不可用：每次都显示，不阻塞使用
   $('guideOk').addEventListener('click', () => {
-    localStorage.setItem('mooklab_seen_guide', '1');
+    try{ localStorage.setItem('mooklab_seen_guide', '1'); }catch(e){}
     $('guide').style.display = 'none';
   });
 
@@ -2692,6 +2707,8 @@
     const btn = document.getElementById('btnExport');
     btn.textContent = '生成中…';
     const prevT = page.style.transform, prevZ = page.style.zoom;
+    const prevWrap = pageWrap.style.transform;   // 预览手势（平移/捏合）也要复位，否则一起被渲染
+    pageWrap.style.transform = 'none';
     page.style.transform = 'none';   // 导出时恢复原始尺寸，保证全分辨率
     page.style.zoom = '100%';
     page.classList.add('exporting');
@@ -2716,6 +2733,7 @@
     // 照片已是显式盒子 + transform（弃用 object-fit），html2canvas 原生支持，无需换算
     const restoreAll = () => { restoreFilter(); };
     html2canvas(page, {scale:2, useCORS:true, backgroundColor:'#FAF7F0'}).then(cv=>{
+      pageWrap.style.transform = prevWrap;
       page.style.transform = prevT;
       page.style.zoom = prevZ;
       restoreAll();
