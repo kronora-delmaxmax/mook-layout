@@ -115,6 +115,61 @@
   .g-card button{margin-top:18px;width:100%;padding:11px;background:var(--accent);
     color:#FFF;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
 
+
+  /* ===== 选照片/视频 弹层 ===== */
+  #pickModal{position:fixed;inset:0;z-index:125;background:rgba(20,18,14,.55);
+    display:none;align-items:flex-end;justify-content:center}
+  .pk-card{width:100%;max-width:420px;padding:14px 14px calc(14px + env(safe-area-inset-bottom));
+    background:#FFFDF8;border-radius:16px 16px 0 0;display:flex;flex-direction:column;gap:10px}
+  .pk-card button{padding:14px;border:1px solid var(--hair);border-radius:10px;
+    background:#FFF;font-size:15px;font-family:inherit;cursor:pointer;color:var(--ink)}
+  .pk-card .pk-v{background:var(--accent);border-color:var(--accent);color:#FFF}
+  .pk-card .pk-c{color:#8A8271;border:none;background:transparent}
+
+  /* ===== 视频结果弹层：生成后原地预览 ===== */
+  #videoModal{position:fixed;inset:0;z-index:130;background:rgba(20,18,14,.72);
+    display:none;align-items:center;justify-content:center;padding:20px}
+  .vm-card{background:#1E1C18;border-radius:14px;max-width:360px;width:100%;padding:14px;
+    box-shadow:0 16px 50px rgba(0,0,0,.5)}
+  .vm-card video{width:100%;border-radius:8px;display:block;background:#000;max-height:62vh}
+  .vm-tools{display:flex;gap:8px;margin-top:12px}
+  .vm-tools button{flex:1;padding:10px 4px;border-radius:8px;border:1px solid #4A463E;
+    background:transparent;color:#EDE8DC;font-size:13px;font-family:inherit;cursor:pointer}
+  .vm-tools .vm-primary{background:var(--accent);border-color:var(--accent);color:#FFF}
+  .vm-note{margin-top:10px;font-size:11px;color:#B7AFA0;text-align:center;letter-spacing:.5px}
+  .vm-note span{color:#E8C468;cursor:pointer;text-decoration:underline}
+
+  /* ===== 视频导出两层渲染 ===== */
+  .vbase-pass *{visibility:hidden}
+  .vbase-pass .lay,.vbase-pass .lay .photo,.vbase-pass .lay .photo *{visibility:visible}
+  .voverlay-pass{background:none!important}
+  .voverlay-pass .photo{visibility:hidden}
+
+  /* ===== Pro 付费墙 ===== */
+  #proModal{position:fixed;inset:0;z-index:135;background:rgba(20,18,14,.6);
+    display:none;align-items:center;justify-content:center;padding:24px}
+  .pro-card{background:#FFFDF8;border-radius:16px;max-width:340px;width:100%;padding:26px 24px;
+    box-shadow:0 16px 50px rgba(0,0,0,.35);position:relative}
+  .pro-card h3{font-size:18px;letter-spacing:1px;margin-bottom:4px}
+  .pro-card .pro-sub{font-size:12px;color:#8A8271;margin-bottom:14px;letter-spacing:1px}
+  .pro-card ul{list-style:none;margin-bottom:14px}
+  .pro-card li{font-size:13px;line-height:2.1;color:#55504A}
+  .pro-card li::before{content:'✓';color:var(--accent);margin-right:8px;font-weight:700}
+  .pro-price{font-size:15px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+  .pro-trial{font-size:11px;color:#8A8271;margin-bottom:14px}
+  .pro-card .pro-primary{width:100%;padding:12px;background:var(--accent);color:#FFF;
+    border:none;border-radius:10px;font-size:15px;font-family:inherit;cursor:pointer}
+  .pro-links{margin-top:12px;font-size:11px;color:#8A8271;text-align:center}
+  .pro-links span{cursor:pointer;text-decoration:underline}
+  .pro-x{position:absolute;top:10px;right:14px;border:none;background:transparent;
+    font-size:18px;color:#8A8271;cursor:pointer;font-family:inherit}
+  /* 面板底部 Pro 入口卡 */
+  .pro-entry{margin-top:14px;padding:12px 14px;border:1px solid var(--hair);border-radius:10px;
+    background:#FFFDF8;cursor:pointer;font-size:12px;letter-spacing:1px}
+  .pro-entry b{display:block;font-size:13px;margin-bottom:2px}
+  .pro-entry span{color:#8A8271;font-size:11px}
+  .pro-entry.owned{border-color:var(--accent);background:#FBF3EE}
+
   /* ===== 奶白主题（韩系清爽向）：变量覆盖 + 面板/背景 ===== */
   body.theme-bright{--paper:#FFFFFF;--ink:#3A3835;--accent:#5B8DEF;--hair:#D9D6D0;
     background:#F4F3F1}
@@ -398,6 +453,8 @@
   .exporting .ph-tools{display:none!important}
   /* 空相框的占位 img 无图源，导出时隐藏避免 html2canvas 报 Error loading image */
   .exporting .photo:not(.filled) img{display:none!important}
+  /* PNG 导出画不了视频帧：隐藏 video 元素（要动请用导出视频） */
+  .exporting .photo video{display:none!important}
   /* 栏位提示态：未填写时显示灰色栏位名，编辑或 AI 生成后恢复正文色 */
   [contenteditable].hint{color:#BDB5A2!important}
   .layE [contenteditable].hint{color:rgba(255,255,255,.55)!important}
@@ -620,6 +677,7 @@
       </select>
     </div>
     <button class="btn btn-ghost" id="btnExport">导出 PNG</button>
+    <button class="btn btn-primary" id="btnVideo" style="margin-top:6px">导出视频（3s）· Pro</button>
     <div class="ai-status err" id="warnLine"></div>
   </div>
 
@@ -637,6 +695,7 @@
       border:1px dashed #C9C2B4;background:transparent;color:#8A8271;border-radius:3px;
       cursor:pointer;font-family:inherit">🗑 清空草稿，重新开始</button>
   </div>
+  <div class="pro-entry" id="proEntry"><b>✦ Pro · 视频杂志</b><span>导出无水印视频 · 一次买断</span></div>
 </aside>
 
 <main class="stage" id="stage">
@@ -810,9 +869,50 @@
 </main>
 
 <input type="file" id="fileIn" accept="image/*" style="display:none">
+<input type="file" id="fileInV" accept="video/*" style="display:none">
 
 <button id="opCancel">取消当前操作</button>
 <div id="toast"></div>
+
+<!-- 选照片 / 选视频 -->
+<div id="pickModal">
+  <div class="pk-card">
+    <button id="pkImg">选照片</button>
+    <button id="pkVid" class="pk-v">选视频（Pro · 含 Live Photo 存出的视频）</button>
+    <button id="pkCancel" class="pk-c">取消</button>
+  </div>
+</div>
+
+<!-- 视频结果弹层 -->
+<div id="videoModal">
+  <div class="vm-card">
+    <video id="videoView" controls playsinline loop muted autoplay></video>
+    <div class="vm-tools">
+      <button id="vmShare" class="vm-primary">分享 / 保存</button>
+      <button id="vmDl">下载</button>
+      <button id="vmClose">关闭</button>
+    </div>
+    <div class="vm-note" id="vmNote" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Pro 付费墙 -->
+<div id="proModal">
+  <div class="pro-card">
+    <button class="pro-x" id="proClose">×</button>
+    <h3>做杂志 Pro</h3>
+    <div class="pro-sub">会动的杂志</div>
+    <ul>
+      <li>导出无水印视频</li>
+      <li>视频相框 / Live Photo</li>
+      <li>后续视频模板免费更新</li>
+    </ul>
+    <div class="pro-price">¥38 一次买断 · 永久使用</div>
+    <div class="pro-trial" id="proTrialText"></div>
+    <button class="pro-primary" id="proUnlock">解锁 Pro</button>
+    <div class="pro-links"><span id="proRestore">恢复购买</span> · <span>隐私政策</span></div>
+  </div>
+</div>
 
 <!-- 新手引导卡：只出现一次 -->
 <div id="guide">
@@ -1043,9 +1143,10 @@
     p.addEventListener('click', ()=>{
       if(p._suppressClick){ p._suppressClick = false; return; }  // 刚拖完不触发换图
       // 空相框：单击立即选图；已填充：延迟 280ms，期间第二击 = 双击切构图（手势层会取消本次单击）
-      if(!p.classList.contains('filled')){ activeSlot = p; fileIn.click(); return; }
+      if(!p.classList.contains('filled')){ activeSlot = p; pickModal.style.display = 'flex'; return; }
       if(p._clickTimer){ clearTimeout(p._clickTimer); p._clickTimer = null; return; }
-      p._clickTimer = setTimeout(() => { p._clickTimer = null; activeSlot = p; fileIn.click(); }, 280);
+      p._clickTimer = setTimeout(() => { p._clickTimer = null; activeSlot = p;
+        pickModal.style.display = 'flex'; }, 280);
     });
   });
 
@@ -1055,8 +1156,8 @@
        'contain' 整图完整显示（全出血默认，零裁切）
      手势的 translate/scale 在此盒子上叠加 */
   function layoutPhoto(p, mode){
-    const img = p.querySelector('img');
-    const nw = img.naturalWidth, nh = img.naturalHeight;
+    const img = p.querySelector('video') || p.querySelector('img');
+    const nw = img.videoWidth || img.naturalWidth, nh = img.videoHeight || img.naturalHeight;
     if(!nw || !nh) return;
     const rc = p.getBoundingClientRect(), ps = page._scale || 1;
     const W = rc.width / ps, H = rc.height / ps;
@@ -1076,6 +1177,7 @@
   }
   /* 全出血完整显示：构图未被用户调整过的照片自动转 contain */
   function bleedFitWhole(p){
+    if(p._isVideo) return;   // 视频保持铺满，不自动转完整显示
     const img = p.querySelector('img');
     const go = () => { if(p._pz === 1 && !p._px && !p._py) layoutPhoto(p, 'contain'); };
     if(img.complete && img.naturalWidth) go();
@@ -1084,7 +1186,8 @@
 
   /* ---- 相框内照片手势：拖动调构图，双指缩放 ---- */
   function attachPhotoGestures(ph){
-    const img = ph.querySelector('img');
+    // 媒体元素动态解析：视频是后放入的，初始化时还不存在
+    const mediaEl = () => ph.querySelector('video') || ph.querySelector('img');
     ph._pz = 1; ph._px = 0; ph._py = 0;
     const frameSize = () => {
       const r = ph.getBoundingClientRect(), ps = page._scale || 1;
@@ -1130,9 +1233,10 @@
         moved = true;
       }
       clampPan();
-      img.style.transformOrigin = 'center';
-      img.style.transform = 'translate(' + ph._px + 'px,' + ph._py + 'px) scale(' + ph._pz + ')';
-      img.style.maxWidth = 'none';
+      const m = mediaEl();
+      m.style.transformOrigin = 'center';
+      m.style.transform = 'translate(' + ph._px + 'px,' + ph._py + 'px) scale(' + ph._pz + ')';
+      m.style.maxWidth = 'none';
     });
     const up = e => {
       if(moved) ph._suppressClick = true;   // 抑制随后的 click 换图
@@ -1188,6 +1292,7 @@
     tools.addEventListener('click', async e => {
       const b = e.target.closest('button'); if(!b) return;
       e.stopPropagation();
+      if(p._isVideo){ showToast('视频相框暂不支持旋转/翻转'); return; }
       const img = p.querySelector('img');
       if(!p.classList.contains('filled') || !img.src) return;
       pushUndo();
@@ -1226,6 +1331,7 @@
     }
     if(!activeSlot) return;
     pushUndo();
+    if(f.type.startsWith('video/')){ putVideo(activeSlot, f); fileIn.value = ''; return; }
     const r = new FileReader();
     r.onload = e=>{
       const img = activeSlot.querySelector('img');
@@ -2457,7 +2563,7 @@
       folio: document.querySelector('.folio').textContent,
       collage: collageOn,
       photos: [...document.querySelectorAll('.photo')].map(p => {
-        if(!p.classList.contains('filled')) return null;
+        if(!p.classList.contains('filled') || p._isVideo) return null;   // 视频相框不入草稿
         return { src: shrinkForDraft(p.querySelector('img')), pz: p._pz||1, px: p._px||0, py: p._py||0,
                  tilt: (p._tilt != null ? p._tilt : null), round: p.classList.contains('round'),
                  fit: p._fit || 'cover', bw: p._bw || 0, bh: p._bh || 0 };
@@ -2703,6 +2809,220 @@
   await loadDraft();
   syncExportUI();
   draftReady = true;
+
+  /* ===== 视频相框（Pro）===== */
+  function putVideo(p, f){
+    let v = p.querySelector('video');
+    if(!v){
+      v = document.createElement('video');
+      v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+      v.style.cssText = 'position:absolute;display:block';
+      p.appendChild(v);
+    }
+    p._isVideo = true;
+    v.src = URL.createObjectURL(f);
+    p.classList.add('filled');
+    v.addEventListener('loadedmetadata', () => {
+      layoutPhoto(p, 'cover');   // 视频默认铺满；双击可切按比例完整显示
+      v.play().catch(() => {});
+    }, { once: true });
+    showToast('视频相框已放入：导出视频时会一起动');
+    try{
+      if(!localStorage.getItem('mooklab_seen_video')){
+        localStorage.setItem('mooklab_seen_video', '1');
+        setTimeout(() => showToast('视频相框是 Pro 功能：编辑免费，导出无水印需解锁'), 3200);
+      }
+    }catch(e){}
+  }
+  /* 选照片/视频 弹层（此处 $ 辅助函数尚未声明，用 getElementById） */
+  const pickModal = document.getElementById('pickModal');
+  document.getElementById('pkImg').addEventListener('click', () => { pickModal.style.display = 'none'; fileIn.click(); });
+  document.getElementById('pkVid').addEventListener('click', () => { pickModal.style.display = 'none'; document.getElementById('fileInV').click(); });
+  document.getElementById('pkCancel').addEventListener('click', () => { pickModal.style.display = 'none'; });
+  pickModal.addEventListener('click', e => { if(e.target === pickModal) pickModal.style.display = 'none'; });
+  document.getElementById('fileInV').addEventListener('change', () => {
+    const fv = document.getElementById('fileInV');
+    const f = fv.files[0];
+    fv.value = '';
+    if(!f || !activeSlot) return;
+    pushUndo();
+    putVideo(activeSlot, f);
+  });
+
+  /* ===== Pro 状态与试用计数（网页测试版：解锁为模拟；正式版接 App 内购）===== */
+  const PRO = {
+    TRIAL: 3,
+    isPro(){ try{ return localStorage.getItem('mooklab_pro') === '1'; }catch(e){ return false; } },
+    trialLeft(){
+      try{
+        const n = parseInt(localStorage.getItem('mooklab_vtrial') || '0', 10);
+        return Math.max(0, PRO.TRIAL - n);
+      }catch(e){ return PRO.TRIAL; }
+    },
+    consumeTrial(){ try{ localStorage.setItem('mooklab_vtrial', String((PRO.TRIAL - PRO.trialLeft()) + 1)); }catch(e){} },
+    grant(){ try{ localStorage.setItem('mooklab_pro', '1'); }catch(e){} },
+  };
+  function updateProUI(){
+    const pe = document.getElementById('proEntry');
+    if(PRO.isPro()){
+      pe.classList.add('owned');
+      pe.innerHTML = '<b>✦ Pro 已解锁</b><span>感谢支持 · 视频功能全部可用</span>';
+    }else{
+      pe.classList.remove('owned');
+      pe.innerHTML = '<b>✦ Pro · 视频杂志</b><span>导出无水印视频 · 一次买断</span>';
+    }
+    const tt = document.getElementById('proTrialText');
+    tt.textContent = PRO.isPro() ? '' :
+      (PRO.trialLeft() > 0 ? '免费试用：还可导出 ' + PRO.trialLeft() + ' 次无水印视频' : '免费试用已用完，导出将带水印');
+  }
+  document.getElementById('proEntry').addEventListener('click', () => {
+    updateProUI();
+    document.getElementById('proModal').style.display = 'flex';
+  });
+  document.getElementById('proClose').addEventListener('click', () => document.getElementById('proModal').style.display = 'none');
+  document.getElementById('proModal').addEventListener('click', e => {
+    if(e.target === document.getElementById('proModal')) document.getElementById('proModal').style.display = 'none';
+  });
+  document.getElementById('proUnlock').addEventListener('click', () => {
+    // 网页测试环境：模拟解锁；正式版此处接 StoreKit 内购
+    PRO.grant(); updateProUI();
+    document.getElementById('proModal').style.display = 'none';
+    showToast('已解锁 Pro（测试环境模拟，正式版走 App 内购买）');
+  });
+  document.getElementById('proRestore').addEventListener('click', () => showToast('网页版无购买记录可恢复'));
+  updateProUI();
+
+  /* ===== 短视频导出：三层合成（底层+媒体逐帧+排版文字层置顶）===== */
+  document.getElementById('btnVideo').addEventListener('click', async () => {
+    const btn = document.getElementById('btnVideo');
+    const DUR = 3000, FPS = 30, SC = 2;
+    const watermark = !PRO.isPro() && PRO.trialLeft() <= 0;
+    btn.textContent = '准备中…'; btn.disabled = true;
+    const prevT = page.style.transform, prevZ = page.style.zoom, prevWrap = pageWrap.style.transform;
+    pageWrap.style.transform = 'none'; page.style.transform = 'none'; page.style.zoom = '100%';
+    page.classList.add('exporting');
+    try{
+      const pageRc = page.getBoundingClientRect();
+      const v = vOrder.find(x => page.classList.contains(x)) || 'vA';
+      const shots = [...page.querySelectorAll(lays[v] + ' .photo.filled')].map(p => {
+        const img = p.querySelector('video') || p.querySelector('img'), rc = p.getBoundingClientRect();
+        return {
+          img,
+          fx: rc.left - pageRc.left, fy: rc.top - pageRc.top, fw: rc.width, fh: rc.height,
+          w: parseFloat(img.style.width) || rc.width,
+          h: parseFloat(img.style.height) || rc.height,
+          l: parseFloat(img.style.left) || 0, t: parseFloat(img.style.top) || 0,
+          px: p._px || 0, py: p._py || 0, pz: p._pz || 1,
+        };
+      });
+      // 底层：页面背景+相框占位（不含媒体与文字，文字必须在视频之上）
+      page.classList.add('vbase-pass');
+      const base = await html2canvas(page, { scale: SC, useCORS: true,
+        backgroundColor: getComputedStyle(page).backgroundColor,
+        ignoreElements: el => (el.tagName === 'IMG' || el.tagName === 'VIDEO') && !!el.closest('.photo') });
+      page.classList.remove('vbase-pass');
+      // 覆盖层：全部排版文字/贴纸/刊头（透明底，每帧盖在视频上）
+      page.classList.add('voverlay-pass');
+      const overlay = await html2canvas(page, { scale: SC, useCORS: true, backgroundColor: null });
+      page.classList.remove('voverlay-pass');
+      btn.textContent = '录制中…';
+      const cv = document.createElement('canvas');
+      cv.width = 600 * SC; cv.height = pageH * SC;
+      const ctx = cv.getContext('2d');
+      const stream = cv.captureStream(FPS);
+      const mime = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+        .find(m => { try{ return MediaRecorder.isTypeSupported(m); }catch(e){ return false; } });
+      if(!mime) throw new Error('此浏览器不支持视频录制（MediaRecorder）');
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 });
+      const chunks = [];
+      rec.ondataavailable = e => { if(e.data.size) chunks.push(e.data); };
+      const stopped = new Promise(res => rec.onstop = res);
+      rec.start(200);
+      const t0 = performance.now();
+      await new Promise(res => {
+        const frame = () => {
+          const el = performance.now() - t0, k = Math.min(1, el / DUR);
+          ctx.drawImage(base, 0, 0, cv.width, cv.height);
+          shots.forEach((s, i) => {
+            const dir = i % 2 ? -1 : 1;
+            const z = 1 + 0.07 * k;
+            const dx = dir * 7 * k, dy = dir * 4 * k;
+            const dw = s.w * s.pz * z, dh = s.h * s.pz * z;
+            const cx = s.l + s.w/2 + s.px + dx, cy = s.t + s.h/2 + s.py + dy;
+            ctx.save();
+            ctx.beginPath(); ctx.rect(s.fx*SC, s.fy*SC, s.fw*SC, s.fh*SC); ctx.clip();
+            ctx.drawImage(s.img, (cx-dw/2)*SC, (cy-dh/2)*SC, dw*SC, dh*SC);
+            ctx.restore();
+          });
+          ctx.drawImage(overlay, 0, 0, cv.width, cv.height);   // 排版文字层永远在最上
+          if(watermark){                                       // 免费额度用尽：右下角水印
+            ctx.save();
+            ctx.font = (12*SC) + 'px "Noto Serif SC",serif';
+            ctx.textAlign = 'right';
+            ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
+            ctx.fillStyle = 'rgba(255,255,255,.85)';
+            ctx.fillText('做杂志 · 免费版', cv.width - 12*SC, cv.height - 10*SC);
+            ctx.restore();
+          }
+          if(el < DUR + 120) requestAnimationFrame(frame); else res();
+        };
+        frame();
+      });
+      rec.stop(); await stopped;
+      if(!PRO.isPro() && PRO.trialLeft() > 0) PRO.consumeTrial();
+      updateProUI();
+      const blob = new Blob(chunks, { type: mime.split(';')[0] });
+      window.__videoBlob = blob;
+      window.__videoExt = mime.includes('mp4') ? 'mp4' : 'webm';
+      const vv = document.getElementById('videoView');
+      if(window.__videoURL) URL.revokeObjectURL(window.__videoURL);
+      window.__videoURL = URL.createObjectURL(blob);
+      vv.src = window.__videoURL;
+      // 免费用户：结果页底部给升级入口
+      const note = document.getElementById('vmNote');
+      if(!PRO.isPro()){
+        note.style.display = 'block';
+        note.innerHTML = watermark
+          ? '免费额度已用完，本片带水印 · <span id="vmGoPro">去水印，解锁 Pro</span>'
+          : '本片无水印（免费试用剩 ' + PRO.trialLeft() + ' 次）· <span id="vmGoPro">了解 Pro</span>';
+        note.querySelector('#vmGoPro').addEventListener('click', () => {
+          document.getElementById('videoModal').style.display = 'none';
+          updateProUI();
+          document.getElementById('proModal').style.display = 'flex';
+        });
+      }else{
+        note.style.display = 'none';
+      }
+      document.getElementById('videoModal').style.display = 'flex';
+      vv.play().catch(() => {});
+    }catch(err){
+      showToast('视频导出失败：' + err.message);
+    }
+    pageWrap.style.transform = prevWrap; page.style.transform = prevT; page.style.zoom = prevZ;
+    page.classList.remove('exporting');
+    btn.textContent = '导出视频（3s）· Pro'; btn.disabled = false;
+  });
+  /* 视频结果弹层按钮 */
+  document.getElementById('vmShare').addEventListener('click', async () => {
+    const file = new File([window.__videoBlob], '做杂志_VOL01.' + window.__videoExt,
+      { type: window.__videoBlob.type });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      try{ await navigator.share({ files: [file], title: '做杂志' }); }catch(e){}
+    }else{
+      document.getElementById('vmDl').click();
+      showToast('此浏览器不支持直接分享，已为你下载');
+    }
+  });
+  document.getElementById('vmDl').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = window.__videoURL;
+    a.download = '做杂志_VOL01.' + window.__videoExt;
+    a.click();
+  });
+  document.getElementById('vmClose').addEventListener('click', () => {
+    document.getElementById('videoView').pause();
+    document.getElementById('videoModal').style.display = 'none';
+  });
 
   /* ---- 导出 ---- */
   document.getElementById('btnExport').addEventListener('click', async ()=>{
