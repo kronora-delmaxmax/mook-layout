@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>刊 · 朝食特辑 — 杂志排版原型</title>
+<title>做杂志 — 杂志轻松做</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232B2620'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23F3EFE6' font-family='serif'%3E刊%3C/text%3E%3C/svg%3E">
 <link href="vendor/fonts.css" rel="stylesheet">
 <script src="vendor/html2canvas.min.js"></script>
@@ -2740,7 +2740,7 @@
       page.classList.remove('exporting');
       syncExportUI();
       cv.toBlob(async blob => {
-        const file = new File([blob], '朝食特辑_VOL01.png', { type:'image/png' });
+        const file = new File([blob], '做杂志_VOL01.png', { type:'image/png' });
         // 手机端：优先调系统分享面板，可选"存储图像"直接存进相册
         if(navigator.canShare && navigator.canShare({ files:[file] })){
           try{
