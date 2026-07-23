@@ -555,7 +555,7 @@
     <div class="field"><input id="aiBase" placeholder="Base URL"></div>
     <div class="field"><input id="aiModel" placeholder="模型名"></div>
     <div class="field"><input id="aiKey" type="password" placeholder="API Key（仅存浏览器本地）"></div>
-    <button class="btn btn-primary" id="btnAI">✦ 识别照片生成文案</button>
+    <button class="btn btn-primary" id="btnAI">识别照片生成文案</button>
     <div class="ai-status" id="aiStatus">放入照片后点这里，AI 自动看图写文案</div>
     <div class="facts" id="factsBox" style="display:none">
       <div class="facts-title">视觉事实清单（识别 → 创作分离）</div>
@@ -582,11 +582,11 @@
     <label>拼贴装饰 DECOR</label>
     <div class="seg" style="margin-bottom:8px">
       <button id="btnCollage">胶带拼贴 OFF</button>
-      <button id="btnReshuffle">🎲 换角度</button>
+      <button id="btnReshuffle">换角度</button>
     </div>
     <div class="seg">
-      <button id="btnNote">✎ 加便签</button>
-      <button id="btnLead">⌖ 加标注</button>
+      <button id="btnNote">加便签</button>
+      <button id="btnLead">加标注</button>
     </div>
   </div>
 
@@ -596,12 +596,12 @@
     <div class="f-row"><span>对比</span><input type="range" id="fCon" min="0.7" max="1.3" step="0.05" value="1"></div>
     <div class="f-row"><span>饱和</span><input type="range" id="fSat" min="0" max="2" step="0.05" value="1"></div>
     <div class="f-row"><span>暖调</span><input type="range" id="fWarm" min="0" max="0.5" step="0.05" value="0"></div>
-    <button class="btn btn-ghost" id="fReset" style="margin-top:6px;padding:7px">↺ 还原调色</button>
+    <button class="btn btn-ghost" id="fReset" style="margin-top:6px;padding:7px">还原调色</button>
   </div>
 
   <div class="group">
     <label>抠图贴纸 STICKER</label>
-    <button class="btn btn-ghost" id="btnCut">✂ 抠图做贴纸</button>
+    <button class="btn btn-ghost" id="btnCut">抠图做贴纸</button>
     <div class="seg" style="margin-top:8px">
       <button id="zTop">置顶</button>
       <button id="zBottom">置底</button>
@@ -619,7 +619,7 @@
         <option value="1067">9:16 全屏 / Story</option>
       </select>
     </div>
-    <button class="btn btn-ghost" id="btnExport">↓ 导出 PNG</button>
+    <button class="btn btn-ghost" id="btnExport">导出 PNG</button>
     <div class="ai-status err" id="warnLine"></div>
   </div>
 
@@ -632,7 +632,7 @@
     · 草稿自动保存在本机，刷新不丢
     <button id="btnUndo" disabled style="margin-top:10px;width:100%;padding:8px;font-size:11px;
       background:#fff;border:1px solid #D8D1C0;border-radius:8px;color:#6E6656;
-      cursor:pointer;font-family:inherit">↩︎ 撤销上一步</button>
+      cursor:pointer;font-family:inherit">撤销</button>
     <button id="btnReset" style="margin-top:10px;width:100%;padding:8px;font-size:11px;
       border:1px dashed #C9C2B4;background:transparent;color:#8A8271;border-radius:3px;
       cursor:pointer;font-family:inherit">🗑 清空草稿，重新开始</button>
@@ -811,7 +811,7 @@
 
 <input type="file" id="fileIn" accept="image/*" style="display:none">
 
-<button id="opCancel">✕ 取消当前操作</button>
+<button id="opCancel">取消当前操作</button>
 <div id="toast"></div>
 
 <!-- 新手引导卡：只出现一次 -->
@@ -823,16 +823,16 @@
       <li>点「✦ 识别」，AI 看图配文</li>
       <li>点「↓ 导出」，保存成图分享</li>
     </ol>
-    <button id="guideOk">开始做杂志 →</button>
+    <button id="guideOk">开始做杂志</button>
   </div>
 </div>
 
 <!-- 手机端底部主操作栏 -->
 <nav id="mBar">
-  <button data-act="btnAI">✦ 识别</button>
-  <button data-act="btnCut">✂ 抠图</button>
-  <button data-act="segVariant">▦ 版式</button>
-  <button data-act="btnExport" class="primary">↓ 导出</button>
+  <button data-act="btnAI">识别</button>
+  <button data-act="btnCut">抠图</button>
+  <button data-act="segVariant">版式</button>
+  <button data-act="btnExport" class="primary">导出</button>
 </nav>
 
 <!-- 蒙版微调编辑器：AI 初版蒙版 + 手指涂抹修正 -->
@@ -840,13 +840,13 @@
   <div class="mm-title">蒙版微调 — 涂抹修正抠图边缘</div>
   <canvas id="maskView"></canvas>
   <div class="mm-tools">
-    <button id="mmErase" class="on">✕ 擦除</button>
-    <button id="mmRestore">✓ 恢复</button>
+    <button id="mmErase" class="on">擦除</button>
+    <button id="mmRestore">恢复</button>
     <input type="range" id="mmBrush" min="10" max="80" value="36">
-    <button id="mmUndo">↩ 撤销</button>
-    <button id="mmReset">⟲ 重置</button>
+    <button id="mmUndo">撤销</button>
+    <button id="mmReset">重置</button>
     <button id="mmCancel">取消</button>
-    <button id="mmOk" class="mm-ok">完成 ✓</button>
+    <button id="mmOk" class="mm-ok">完成</button>
   </div>
 </div>
 
@@ -2685,11 +2685,11 @@
   document.getElementById('btnReset').addEventListener('click', e => {
     const b = e.currentTarget;
     if(!resetArmed){
-      b.textContent = '⚠ 再点一次确认清空';
+      b.textContent = '再点一次确认清空';
       b.style.color = '#B23B22'; b.style.borderColor = '#B23B22';
       resetArmed = setTimeout(() => {
         resetArmed = null;
-        b.textContent = '🗑 清空草稿，重新开始';
+        b.textContent = '清空草稿，重新开始';
         b.style.color = ''; b.style.borderColor = '';
       }, 3000);
       return;
