@@ -1,0 +1,8 @@
+本应用使用的字体：思源宋体（Source Han Serif / Noto Serif CJK）
+版权 © Adobe Systems Incorporated 与 Google Inc.
+授权协议：SIL Open Font License, Version 1.1（OFL-1.1）
+
+- 允许商业使用、嵌入分发、网页 @font-face 打包
+- 许可证全文见同目录 OFL.txt
+- 官方来源：https://github.com/adobe-fonts/source-han-serif
+- 协议原文：https://openfontlicense.org
