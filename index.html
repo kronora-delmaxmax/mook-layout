@@ -261,6 +261,15 @@
   .lead-label:hover .ndel{display:block}
   .exporting .lead-label .ndel{display:none!important}
   /* 拖拽对齐参考线 */
+  /* IG Story 安全区：顶部头像栏/底部回复框各约 13% 会被遮挡，9:16 时提示 */
+  #storySafe{position:absolute;inset:0;z-index:39;pointer-events:none;display:none}
+  #storySafe .ss{position:absolute;left:0;right:0;
+    background:rgba(43,43,43,.06);border-style:dashed;border-color:rgba(43,43,43,.3);
+    font-size:10px;letter-spacing:1px;color:rgba(43,43,43,.45);
+    display:flex;align-items:center;justify-content:center}
+  #storySafe .ss-top{top:0;height:13%;border-width:0 0 1.5px 0}
+  #storySafe .ss-bot{bottom:0;height:13%;border-width:1.5px 0 0 0}
+  .exporting #storySafe{display:none!important}
   #guideV,#guideH{position:absolute;z-index:40;pointer-events:none;display:none}
   #guideV{top:0;bottom:0;width:0;border-left:1.5px dashed #E85D3D}
   #guideH{left:0;right:0;height:0;border-top:1.5px dashed #E85D3D}
@@ -787,6 +796,10 @@
       <div class="photo corner" data-slot="0"><div class="ph"><b>＋</b>小图</div><img alt=""></div>
     </div>
 
+    <div id="storySafe">
+      <div class="ss ss-top">IG 头像/标题遮挡区</div>
+      <div class="ss ss-bot">IG 回复框遮挡区</div>
+    </div>
     <div class="folio" contenteditable>— 01 —</div>
     <svg id="leadSvg"></svg>
     <div id="guideV"></div>
@@ -949,7 +962,15 @@
       });
     }
     fitPage();
+    syncExportUI();
   });
+
+  /* 导出按钮文案跟随尺寸；9:16 时显示 IG Story 安全区参考 */
+  const SIZE_NAMES = { 800:'小红书 3:4', 600:'方形 1:1', 750:'Instagram 4:5', 1067:'Story 9:16' };
+  function syncExportUI(){
+    $('btnExport').textContent = '↓ 导出 PNG（' + (SIZE_NAMES[pageH] || '') + '）';
+    $('storySafe').style.display = pageH === 1067 ? 'block' : 'none';
+  }
 
   /* 字号调节 */
   document.getElementById('tScale').addEventListener('input', e => {
@@ -2663,6 +2684,7 @@
     location.reload();
   });
   await loadDraft();
+  syncExportUI();
   draftReady = true;
 
   /* ---- 导出 ---- */
@@ -2698,7 +2720,7 @@
       page.style.zoom = prevZ;
       restoreAll();
       page.classList.remove('exporting');
-      btn.textContent = '↓ 导出 PNG（小红书 3:4）';
+      syncExportUI();
       cv.toBlob(async blob => {
         const file = new File([blob], '朝食特辑_VOL01.png', { type:'image/png' });
         // 手机端：优先调系统分享面板，可选"存储图像"直接存进相册
@@ -2715,14 +2737,14 @@
         a.click();
         setTimeout(()=> URL.revokeObjectURL(a.href), 5000);
         btn.textContent = '已下载（iOS 可长按图片存储到相册）';
-        setTimeout(()=> btn.textContent = '↓ 导出 PNG（小红书 3:4）', 3000);
+        setTimeout(syncExportUI, 3000);
       }, 'image/png');
     }).catch(()=>{
       page.style.transform = prevT;
       page.style.zoom = prevZ;
       restoreAll();
       page.classList.remove('exporting');
-      btn.textContent = '↓ 导出 PNG';
+      syncExportUI();
     });
   });
 })();
