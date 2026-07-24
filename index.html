@@ -1239,6 +1239,22 @@
       });
     }
     fitPage();
+    // 画布纵向比例变了：所有已填充相框按新框重算铺底，保留用户的缩放/平移构图（纵向随比例缩放）
+    if(oldH !== pageH){
+      const r = pageH / oldH;
+      document.querySelectorAll('.photo.filled').forEach(p => {
+        const keepZ = p._pz || 1, keepX = p._px || 0, keepY = (p._py || 0) * r;
+        const img = p.querySelector('video') || p.querySelector('img');
+        if(!img) return;
+        const doRefit = () => {
+          layoutPhoto(p, p._fit === 'contain' ? 'contain' : 'cover');
+          p._pz = keepZ; p._px = keepX; p._py = keepY;
+          img.style.transform = 'translate(' + keepX + 'px,' + keepY + 'px) scale(' + keepZ + ')';
+        };
+        if(img.videoWidth || img.naturalWidth) doRefit();
+        else img.addEventListener('load', doRefit, { once: true });
+      });
+    }
     syncExportUI();
   });
 
