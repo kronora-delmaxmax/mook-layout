@@ -1951,7 +1951,6 @@
       T.env.allowLocalModels = true;
       T.env.allowRemoteModels = false;
       T.env.useBrowserCache = true;
-      T.env.backends.onnx.wasm.wasmPaths = './vendor/';   // ORT 运行时走本地，不依赖 CDN（离线/内网可用）
       chkOp();
       await ensureChunkedFile('models/Xenova/resnet-50/onnx/model_quantized.onnx');
       captioner = await T.pipeline('image-classification', 'Xenova/resnet-50', { dtype:'q8' });
@@ -2259,6 +2258,7 @@
         let msg = e.message;
         if(msg === 'Failed to fetch' && aiPreset.value !== 'builtin')
           msg = '该平台不允许浏览器直连（跨域限制），请改用「免 Key 体验」档';
+        console.error('[AI] 调用失败:', (e && e.stack) || e);
         setStatus('调用失败：' + msg + '（可重试）', 'err');
       }
     }finally{
@@ -2327,7 +2327,6 @@
     T.env.allowLocalModels = true;
     T.env.allowRemoteModels = false;
     T.env.useBrowserCache = true;
-    T.env.backends.onnx.wasm.wasmPaths = './vendor/';   // ORT 运行时走本地
     await ensureChunkedFile('models/briaai/RMBG-1.4/onnx/model_quantized.onnx');
     try{ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4', { dtype:'q8' }); }
     catch(e){ rmbgModel = await T.AutoModel.from_pretrained('briaai/RMBG-1.4'); }
