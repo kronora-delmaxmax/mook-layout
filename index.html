@@ -3144,6 +3144,8 @@
           h: parseFloat(img.style.height) || rc.height,
           l: parseFloat(img.style.left) || 0, t: parseFloat(img.style.top) || 0,
           px: p._px || 0, py: p._py || 0, pz: p._pz || 1,
+          stkW: parseFloat(p.style.getPropertyValue('--stkW')) || 0,
+          stkC: p.style.getPropertyValue('--stkC') || '#FFFFFF',
         };
       });
       // 底层：页面背景+相框占位（不含媒体与文字，文字必须在视频之上）
@@ -3183,6 +3185,11 @@
             ctx.save();
             ctx.beginPath(); ctx.rect(s.fx*SC, s.fy*SC, s.fw*SC, s.fh*SC); ctx.clip();
             ctx.drawImage(s.img, (cx-dw/2)*SC, (cy-dh/2)*SC, dw*SC, dh*SC);
+            if(s.stkW > 0){   // 相框描边：覆盖层隐藏了伪元素，逐帧补画
+              const bw = s.stkW * SC;
+              ctx.lineWidth = bw; ctx.strokeStyle = s.stkC;
+              ctx.strokeRect(s.fx*SC + bw/2, s.fy*SC + bw/2, s.fw*SC - bw, s.fh*SC - bw);
+            }
             ctx.restore();
           });
           ctx.drawImage(overlay, 0, 0, cv.width, cv.height);   // 排版文字层永远在最上
