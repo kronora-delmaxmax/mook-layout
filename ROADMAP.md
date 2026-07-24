@@ -8,6 +8,12 @@
 - [ ] 导出按钮按平台自动切换：网页端出 MP4，iOS App 出 Live Photo
 - 背景：网页端无法创建 Live Photo（Apple 配对元数据 + 相册写入权限不开放给浏览器），当前网页用户可用 intoLive 等 App 手动转换
 
+### 社媒分享升级（原生 SDK，对标 Unfold/Canva）
+- [ ] Instagram Share to Stories SDK：直跳 IG Story 编辑页（图自动贴入），比系统分享面板少两步
+- [ ] 小红书分享 SDK：原生可申请接入，分享面板出现小红书图标直跳发布页（国内优先级高于 IG）
+- [ ] Canva 式账号直连发布（Meta 开发者审核，工程量大，等有用户量再评估，优先级最低）
+- 背景：竞品（Canva/Unfold/CapCut/醒图）的专属社媒按钮全部是原生 App + 官方 SDK；IG 与小红书的分享接口均不对网页开放，网页端系统分享面板（现方案）已是最优解
+
 ### 上架与合规
 - [ ] localStorage 迁移到 Capacitor Preferences（草稿、Pro 标记、试用计数）
 - [ ] IAP 真接入（StoreKit 替换现在的 `PRO.grant()` 模拟解锁，买断制 ¥38）
