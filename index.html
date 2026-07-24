@@ -442,6 +442,27 @@
   .layJ .photo.corner{position:absolute;right:8%;bottom:7%;width:26%;height:19%;
     background:#FFF;padding:6px;box-shadow:0 5px 14px rgba(60,50,30,.14)}
 
+
+  /* ===== 版式 K：封面版（POPEYE：通栏刊名 + 满幅题图 + 特集标题） ===== */
+  .layK{position:absolute;inset:0}
+  .layK .k-head{position:absolute;top:4%;left:5%;right:5%;z-index:6}
+  .layK .logo{font-size:calc(58px * var(--tscale,1));font-weight:900;letter-spacing:5px;
+    line-height:1;color:var(--ink)}
+  .layK .logo-en{margin-top:7px;font-family:'Playfair Display',serif;font-style:italic;
+    font-size:calc(11px * var(--bscale,1));letter-spacing:3px;color:#8A8271}
+  .layK .photo.cover{position:absolute;left:0;right:0;top:17.5%;height:55%}
+  .layK .scrim{position:absolute;left:0;right:0;top:47%;height:25.5%;z-index:5;pointer-events:none;
+    background:linear-gradient(rgba(20,16,10,0), rgba(20,16,10,.6))}
+  .layK .k-title{position:absolute;left:5%;right:5%;bottom:11.5%;z-index:6;color:#FFF;
+    font-size:calc(30px * var(--tscale,1));font-weight:900;letter-spacing:3px;line-height:1.35;
+    text-shadow:0 2px 12px rgba(0,0,0,.55)}
+  .layK .k-title.hint{color:rgba(255,255,255,.65)!important}
+  .layK .k-info{position:absolute;left:5%;right:5%;bottom:4.5%;z-index:6;
+    display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;color:#6E6656}
+  /* 封面版没有默认刊头和页码：大刊名即是刊头 */
+  .vK .masthead{display:none}
+  .vK .folio{display:none}
+
   .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4;touch-action:none}
   .photo.filled{cursor:grab}
   .ph-tools{position:absolute;right:6px;top:6px;z-index:8;display:none;gap:6px}
@@ -560,6 +581,7 @@
       <button data-v="vH">错位版</button>
       <button data-v="vI">框图版</button>
       <button data-v="vJ">目次版</button>
+      <button data-v="vK">封面版</button>
     </div>
   </div>
 
@@ -856,6 +878,22 @@
       <div class="photo corner" data-slot="0"><div class="ph"><b>＋</b>小图</div><img alt=""></div>
     </div>
 
+    <!-- 版式 K：封面版（POPEYE） -->
+    <div class="lay layK" style="display:none">
+      <div class="k-head">
+        <div class="logo hint" contenteditable data-k="logoK">MOOK</div>
+        <div class="logo-en hint" contenteditable data-k="enK">A MAGAZINE FOR EVERYDAY LIFE</div>
+      </div>
+      <div class="photo cover" data-slot="0"><div class="ph"><b>＋</b>点击放入封面图</div><img alt=""></div>
+      <div class="scrim"></div>
+      <div class="k-title hint" contenteditable data-k="titleK">特集大标题</div>
+      <div class="k-info">
+        <span contenteditable data-k="infoK0" class="hint">2026.08</span>
+        <span contenteditable data-k="infoK1" class="hint">No.01</span>
+        <span contenteditable data-k="infoK2" class="hint">¥20</span>
+      </div>
+    </div>
+
     <div id="storySafe">
       <div class="ss ss-top">IG 头像/标题遮挡区</div>
       <div class="ss ss-bot">IG 回复框遮挡区</div>
@@ -1085,7 +1123,7 @@
 
   /* ---- 版式切换 ---- */
   const lays = { vA:'.layA', vB:'.layB', vC:'.layC', vD:'.layD', vE:'.layE',
-    vF:'.layF', vG:'.layG', vH:'.layH', vI:'.layI', vJ:'.layJ' };
+    vF:'.layF', vG:'.layG', vH:'.layH', vI:'.layI', vJ:'.layJ', vK:'.layK' };
   document.getElementById('segVariant').addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return;
     document.querySelectorAll('#segVariant button').forEach(x=>x.classList.toggle('on',x===b));
@@ -1605,9 +1643,9 @@
   }
 
   /* 手机端底部主操作栏 */
-  const vOrder = ['vA','vB','vC','vD','vE','vF','vG','vH','vI','vJ'];
+  const vOrder = ['vA','vB','vC','vD','vE','vF','vG','vH','vI','vJ','vK'];
   const vNames = { vA:'单图版', vB:'双图版', vC:'图鉴版', vD:'贴纸版', vE:'全出血',
-    vF:'扉页版', vG:'压图版', vH:'错位版', vI:'框图版', vJ:'目次版' };
+    vF:'扉页版', vG:'压图版', vH:'错位版', vI:'框图版', vJ:'目次版', vK:'封面版' };
   $('mBar').addEventListener('click', e => {
     const b = e.target.closest('button'); if(!b) return;
     const act = b.dataset.act;
