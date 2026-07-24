@@ -140,10 +140,6 @@
   .vm-note span{color:#E8C468;cursor:pointer;text-decoration:underline}
 
   /* ===== 视频导出两层渲染 ===== */
-  .vbase-pass *{visibility:hidden}
-  .vbase-pass .lay,.vbase-pass .lay .photo,.vbase-pass .lay .photo *{visibility:visible}
-  .voverlay-pass{background:none!important}
-  .voverlay-pass .photo{visibility:hidden}
 
   /* ===== Pro 付费墙 ===== */
   #proModal{position:fixed;inset:0;z-index:135;background:rgba(20,18,14,.6);
@@ -559,7 +555,7 @@
   /* 空相框的占位 img 无图源，导出时隐藏避免 html2canvas 报 Error loading image */
   .exporting .photo:not(.filled) img{display:none!important}
   /* PNG 导出画不了视频帧：隐藏 video 元素（要动请用导出视频） */
-  .exporting .photo video{display:none!important}
+  .expng .photo video{display:none!important}   /* 仅 PNG 导出隐藏视频；视频导出必须保持可见可解码 */
   /* 栏位提示态：未填写时显示灰色栏位名，编辑或 AI 生成后恢复正文色 */
   [contenteditable].hint{color:#BDB5A2!important}
   .layE [contenteditable].hint{color:rgba(255,255,255,.55)!important}
@@ -3147,16 +3143,20 @@
           stkC: p.style.getPropertyValue('--stkC') || '#FFFFFF',
         };
       });
-      // 底层：页面背景+相框占位（不含媒体与文字，文字必须在视频之上）
-      page.classList.add('vbase-pass');
+      // 多视频同框：录制前确保每个视频都在播（iOS 不主动 play 会停在首帧）
+      await Promise.all(shots.map(s =>
+        (s.img && s.img.tagName === 'VIDEO') ? s.img.play().catch(() => {}) : null));
+      // 一次渲染整页（媒体跳过）：底层与文字层同源，杜绝两次渲染的布局漂移
       const base = await html2canvas(page, { scale: SC, useCORS: true,
         backgroundColor: getComputedStyle(page).backgroundColor,
         ignoreElements: el => (el.tagName === 'IMG' || el.tagName === 'VIDEO') && !!el.closest('.photo') });
-      page.classList.remove('vbase-pass');
-      // 覆盖层：全部排版文字/贴纸/刊头（透明底，每帧盖在视频上）
-      page.classList.add('voverlay-pass');
-      const overlay = await html2canvas(page, { scale: SC, useCORS: true, backgroundColor: null });
-      page.classList.remove('voverlay-pass');
+      // 文字层 = 同一渲染的副本挖掉已填充相框（透明洞给逐帧媒体，文字永远置顶）
+      const overlay = document.createElement('canvas');
+      overlay.width = base.width; overlay.height = base.height;
+      const octx = overlay.getContext('2d');
+      octx.drawImage(base, 0, 0);
+      octx.globalCompositeOperation = 'destination-out';
+      shots.forEach(s => octx.fillRect(s.fx*SC, s.fy*SC, s.fw*SC, s.fh*SC));
       btn.textContent = '录制中…';
       const cv = document.createElement('canvas');
       cv.width = 600 * SC; cv.height = pageH * SC;
@@ -3180,7 +3180,7 @@
             const z = 1 + 0.07 * k;
             const dx = dir * 7 * k, dy = dir * 4 * k;
             const dw = s.w * s.pz * z, dh = s.h * s.pz * z;
-            const cx = s.l + s.w/2 + s.px + dx, cy = s.t + s.h/2 + s.py + dy;
+            const cx = s.fx + s.l + s.w/2 + s.px + dx, cy = s.fy + s.t + s.h/2 + s.py + dy;   // 必须含相框页面偏移
             ctx.save();
             ctx.beginPath(); ctx.rect(s.fx*SC, s.fy*SC, s.fw*SC, s.fh*SC); ctx.clip();
             ctx.drawImage(s.img, (cx-dw/2)*SC, (cy-dh/2)*SC, dw*SC, dh*SC);
@@ -3271,6 +3271,7 @@
     page.style.transform = 'none';   // 导出时恢复原始尺寸，保证全分辨率
     page.style.zoom = '100%';
     page.classList.add('exporting');
+    page.classList.add('expng');   // PNG 专属：隐藏视频元素
     if(typeof selectSticker === 'function') selectSticker(null);
     // html2canvas 不支持 CSS filter：有调色时先把滤镜烘焙进临时图像
     const filtered = [];
@@ -3297,6 +3298,7 @@
       page.style.zoom = prevZ;
       restoreAll();
       page.classList.remove('exporting');
+      page.classList.remove('expng');
       syncExportUI();
       btn.textContent = origLabel;
       cv.toBlob(async blob => {
@@ -3323,6 +3325,7 @@
       page.style.zoom = prevZ;
       restoreAll();
       page.classList.remove('exporting');
+      page.classList.remove('expng');
       syncExportUI();
       btn.textContent = origLabel;
     });
