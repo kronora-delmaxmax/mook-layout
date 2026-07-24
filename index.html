@@ -488,6 +488,56 @@
   .vL .masthead{display:none}
   .vL .folio{display:none}
 
+
+  /* ===== 版式 M：宣言版（广告式大字排版：超大标题 + 点缀色分隔线 + 签名 + 底部小字） ===== */
+  .layM{position:absolute;inset:0}
+  .layM .m-head{position:absolute;top:6%;left:7%;right:7%;z-index:6}
+  .layM .m-brand{font-size:calc(34px * var(--tscale,1));font-weight:900;letter-spacing:6px;
+    line-height:1;color:var(--ink)}
+  .layM .m-rule{width:64px;height:5px;background:var(--accent);margin-top:14px}
+  .layM .m-title{position:absolute;top:23%;left:7%;right:7%;z-index:6;
+    font-size:calc(38px * var(--tscale,1));font-weight:900;letter-spacing:2px;line-height:1.3;
+    color:var(--ink)}
+  .layM .m-sign{position:absolute;top:50%;right:9%;z-index:7;
+    font-family:'Playfair Display',serif;font-style:italic;
+    font-size:calc(22px * var(--tscale,1));color:var(--accent);
+    transform:rotate(-5deg);letter-spacing:1px}
+  .layM .photo.banner{position:absolute;left:0;right:0;bottom:9%;height:26%}
+  .layM .m-fine{position:absolute;left:7%;right:7%;bottom:3%;z-index:6;
+    font-size:9.5px;letter-spacing:1px;line-height:1.7;color:#8A8271}
+  /* 宣言版没有默认刊头和页码 */
+  .vM .masthead{display:none}
+  .vM .folio{display:none}
+
+  /* ===== 版式 N：专栏版（棋盘格边框 + 栏名页眉 + 中央大图 + 竖排章节标 + 页脚信息条） ===== */
+  .layN{position:absolute;inset:0}
+  .layN .n-frame{position:absolute;inset:2.5%;z-index:1;
+    background:repeating-conic-gradient(var(--accent) 0% 25%, var(--paper) 0% 50%);
+    background-size:14px 14px}
+  .layN .n-inner{position:absolute;left:calc(2.5% + 8px);right:calc(2.5% + 8px);
+    top:calc(2.5% + 8px);bottom:calc(2.5% + 8px);background:var(--paper);z-index:2}
+  .layN .n-head{position:absolute;top:6.5%;left:8%;right:8%;z-index:6;display:flex;
+    justify-content:space-between;align-items:baseline;gap:10px;
+    border-bottom:1.5px solid var(--accent);padding-bottom:6px}
+  .layN .n-col{font-family:'Playfair Display',serif;font-style:italic;font-weight:700;
+    font-size:calc(20px * var(--tscale,1));color:var(--accent);letter-spacing:1px;flex-shrink:0}
+  .layN .n-note{font-size:9.5px;letter-spacing:1px;color:#8A8271;text-align:right;line-height:1.6}
+  .layN .photo.main{position:absolute;left:12%;right:20%;top:15.5%;height:43%;z-index:3}
+  .layN .n-cap{position:absolute;left:12%;right:20%;top:60%;z-index:6;
+    font-size:10px;letter-spacing:1px;line-height:1.8;color:var(--accent)}
+  .layN .n-side{position:absolute;right:8.5%;top:15.5%;height:43%;z-index:6;
+    writing-mode:vertical-rl;font-size:calc(13px * var(--bscale,1));
+    letter-spacing:3px;color:var(--ink)}
+  .layN .n-body{position:absolute;left:12%;right:12%;top:67.5%;bottom:9.5%;z-index:6;
+    font-size:calc(11.5px * var(--bscale,1));line-height:1.9;letter-spacing:1px;
+    color:var(--ink);column-count:2;column-gap:18px;overflow:hidden}
+  .layN .n-foot{position:absolute;left:8%;right:8%;bottom:5%;z-index:6;display:flex;
+    justify-content:space-between;font-size:9px;letter-spacing:2px;color:#8A8271;
+    border-top:1px solid var(--hair);padding-top:5px}
+  /* 专栏版没有默认刊头和页码：自带页眉页脚 */
+  .vN .masthead{display:none}
+  .vN .folio{display:none}
+
   .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4;touch-action:none}
   .photo.filled{cursor:grab}
   .ph-tools{position:absolute;right:6px;top:6px;z-index:8;display:none;gap:6px}
@@ -608,6 +658,8 @@
       <button data-v="vJ">目次版</button>
       <button data-v="vK">封面版</button>
       <button data-v="vL">满幅封面</button>
+      <button data-v="vM">宣言版</button>
+      <button data-v="vN">专栏版</button>
     </div>
   </div>
 
@@ -937,6 +989,37 @@
       </div>
     </div>
 
+    <!-- 版式 M：宣言版（广告式大字排版） -->
+    <div class="lay layM" style="display:none">
+      <div class="m-head">
+        <div class="m-brand hint" contenteditable data-k="logoM">MOOK</div>
+        <div class="m-rule"></div>
+      </div>
+      <div class="m-title hint" contenteditable data-k="titleM">认准了的好东西，就不必改。</div>
+      <div class="m-sign hint" contenteditable data-k="signM">— the Editor</div>
+      <div class="photo banner" data-slot="0"><div class="ph"><b>＋</b>横幅图（可不放）</div><img alt=""></div>
+      <div class="m-fine hint" contenteditable data-k="fineM">※ 宣言版：大标题、签名与条款小字均可点击修改，横幅照片可放可不放。</div>
+    </div>
+
+    <!-- 版式 N：专栏版（棋盘格边框 + 中央大图 + 竖排章节标） -->
+    <div class="lay layN" style="display:none">
+      <div class="n-frame"></div>
+      <div class="n-inner"></div>
+      <div class="n-head">
+        <div class="n-col hint" contenteditable data-k="colN">Photo School</div>
+        <div class="n-note hint" contenteditable data-k="noteN">专栏 · 每期一课</div>
+      </div>
+      <div class="photo main" data-slot="0"><div class="ph"><b>＋</b>放入照片</div><img alt=""></div>
+      <div class="n-cap hint" contenteditable data-k="capN">Title「作品名」　Photo by 名字</div>
+      <div class="n-side hint" contenteditable data-k="sideN">第一限目「专栏章节题」</div>
+      <div class="n-body hint" contenteditable data-k="bodyN">这里是正文栏，双栏小字排版。点击直接修改文字，讲述这张照片背后的故事、拍摄思路与本期限定内容。换一张照片、改一段文字，就是属于你的专栏页。</div>
+      <div class="n-foot">
+        <span contenteditable data-k="footN0" class="hint">Text &amp; Photo</span>
+        <span contenteditable data-k="footN1" class="hint">MOOK</span>
+        <span contenteditable data-k="footN2" class="hint">2026.08</span>
+      </div>
+    </div>
+
     <div id="storySafe">
       <div class="ss ss-top">IG 头像/标题遮挡区</div>
       <div class="ss ss-bot">IG 回复框遮挡区</div>
@@ -1166,7 +1249,7 @@
 
   /* ---- 版式切换 ---- */
   const lays = { vA:'.layA', vB:'.layB', vC:'.layC', vD:'.layD', vE:'.layE',
-    vF:'.layF', vG:'.layG', vH:'.layH', vI:'.layI', vJ:'.layJ', vK:'.layK', vL:'.layL' };
+    vF:'.layF', vG:'.layG', vH:'.layH', vI:'.layI', vJ:'.layJ', vK:'.layK', vL:'.layL', vM:'.layM', vN:'.layN' };
   document.getElementById('segVariant').addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return;
     document.querySelectorAll('#segVariant button').forEach(x=>x.classList.toggle('on',x===b));
@@ -1686,9 +1769,9 @@
   }
 
   /* 手机端底部主操作栏 */
-  const vOrder = ['vA','vB','vC','vD','vE','vF','vG','vH','vI','vJ','vK','vL'];
+  const vOrder = ['vA','vB','vC','vD','vE','vF','vG','vH','vI','vJ','vK','vL','vM','vN'];
   const vNames = { vA:'单图版', vB:'双图版', vC:'图鉴版', vD:'贴纸版', vE:'全出血',
-    vF:'扉页版', vG:'压图版', vH:'错位版', vI:'框图版', vJ:'目次版', vK:'封面版', vL:'满幅封面' };
+    vF:'扉页版', vG:'压图版', vH:'错位版', vI:'框图版', vJ:'目次版', vK:'封面版', vL:'满幅封面', vM:'宣言版', vN:'专栏版' };
   $('mBar').addEventListener('click', e => {
     const b = e.target.closest('button'); if(!b) return;
     const act = b.dataset.act;
