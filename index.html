@@ -491,15 +491,15 @@
 
   /* ===== 版式 M：宣言版（广告式大字排版：超大标题 + 点缀色分隔线 + 签名 + 底部小字） ===== */
   .layM{position:absolute;inset:0}
-  .layM .m-head{position:absolute;top:6%;left:7%;right:7%;z-index:6}
+  .layM .m-head{position:absolute;top:6%;left:7%;z-index:6;display:inline-block;max-width:86%}
   .layM .photo.banner{position:absolute;inset:0}
   .layM .scrim-t{position:absolute;left:0;right:0;top:0;height:34%;z-index:5;pointer-events:none;
     background:linear-gradient(rgba(20,16,10,.5), rgba(20,16,10,0))}
   .layM .scrim-b{position:absolute;left:0;right:0;bottom:0;height:22%;z-index:5;pointer-events:none;
     background:linear-gradient(rgba(20,16,10,0), rgba(20,16,10,.55))}
-  .layM .m-brand{font-size:calc(34px * var(--tscale,1));font-weight:900;letter-spacing:6px;
-    line-height:1;color:#FFF;text-shadow:0 2px 12px rgba(0,0,0,.5)}
-  .layM .m-rule{width:64px;height:5px;background:var(--accent);margin-top:14px;
+  .layM .m-brand{display:inline-block;font-size:calc(34px * var(--tscale,1));font-weight:900;
+    letter-spacing:6px;line-height:1;color:#FFF;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+  .layM .m-rule{width:calc(100% - 6px);height:5px;background:var(--accent);margin-top:14px;
     box-shadow:0 1px 6px rgba(0,0,0,.4)}
   .layM .m-title{position:absolute;top:23%;left:7%;right:7%;z-index:6;
     font-size:calc(38px * var(--tscale,1));font-weight:900;letter-spacing:2px;line-height:1.3;
