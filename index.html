@@ -3019,6 +3019,7 @@
       v.play().catch(() => {});
     }, { once: true });
     showToast('视频相框已放入：导出视频时会一起动');
+    setTimeout(() => showToast('提示：视频不存入草稿，刷新页面后需重新放入'), 2800);
     try{
       if(!localStorage.getItem('mooklab_seen_video')){
         localStorage.setItem('mooklab_seen_video', '1');
