@@ -543,7 +543,11 @@
   .vN .masthead{display:none}
   .vN .folio{display:none}
 
-  .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4;touch-action:none}
+  .photo{cursor:pointer;overflow:hidden;position:relative;background:#DDD5C4;touch-action:none;
+    --stkW:0px;--stkC:#FFFFFF}
+  /* 描边画在相框上：铺满裁剪的版式里 img 比框大，画在 img 上会被裁掉 */
+  .photo::after{content:'';position:absolute;inset:0;z-index:7;pointer-events:none;
+    border:var(--stkW) solid var(--stkC);box-sizing:border-box}
   .photo.filled{cursor:grab}
   .ph-tools{position:absolute;right:6px;top:6px;z-index:8;display:none;gap:6px}
   .photo.filled .ph-tools{display:flex}
@@ -1547,9 +1551,9 @@
   function applyStroke(rebake){
     const w = strokeW.value;
     strokeVal.textContent = w + 'px';
-    document.querySelectorAll('.photo img').forEach(img=>{
-      img.style.border = (+w>0) ? `${w}px solid ${strokeColor}` : 'none';
-      img.style.boxSizing = 'border-box';
+    document.querySelectorAll('.photo').forEach(p=>{
+      p.style.setProperty('--stkW', (+w>0) ? w+'px' : '0px');
+      p.style.setProperty('--stkC', strokeColor);
     });
     // 贴纸描边要重烘 PNG（重活），只在松手/点击色板时做
     if(rebake !== false)
@@ -1990,6 +1994,40 @@
     }catch(e){ return { color:'柔和', light:'适中', contrast:'过渡柔和', tone:'中性' }; }
   }
 
+  /* 从照片提取配色：平均色 + 最饱和色，进描边色板（每次识别刷新） */
+  function extractPalette(imgEl){
+    try{
+      const cv = document.createElement('canvas'); cv.width = cv.height = 8;
+      const cx = cv.getContext('2d');
+      cx.drawImage(imgEl, 0, 0, 8, 8);
+      const d = cx.getImageData(0, 0, 8, 8).data;
+      let r = 0, g = 0, b = 0, best = null, bestSat = -1;
+      for(let i = 0; i < d.length; i += 4){
+        r += d[i]; g += d[i+1]; b += d[i+2];
+        const mx = Math.max(d[i], d[i+1], d[i+2]), mn = Math.min(d[i], d[i+1], d[i+2]);
+        const sat = mx - mn, l = (mx + mn) / 2;
+        if(sat > bestSat && l > 40 && l < 220){ bestSat = sat; best = [d[i], d[i+1], d[i+2]]; }
+      }
+      const n = d.length / 4;
+      const hex = a => '#' + a.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+      const out = [hex([r/n, g/n, b/n])];
+      if(best && bestSat > 28) out.push(hex(best));
+      return out;
+    }catch(e){ return []; }
+  }
+  function applyAIPalette(imgEl){
+    const colors = extractPalette(imgEl);
+    if(!colors.length) return;
+    document.querySelectorAll('#swatches .sw-ai').forEach(x => x.remove());
+    const sw = document.getElementById('swatches');
+    colors.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'sw sw-ai'; el.dataset.c = c;
+      el.style.background = c; el.title = '照片识别色';
+      sw.appendChild(el);
+    });
+  }
+
   /* 文字维度（OCR，按需加载，失败不阻塞） */
   function loadScript(src){
     return new Promise((res,rej)=>{
@@ -2159,6 +2197,7 @@
   async function callAI(){
     const imgEl = getMainImage();
     if(!imgEl){ setStatus('请先点击照片框放入至少一张照片','err'); return; }
+    applyAIPalette(imgEl);   // 照片配色进描边色板
     const btn = $('btnAI'); btn.disabled = true;
     opBegin();
     try{
