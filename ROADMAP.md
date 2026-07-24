@@ -6,6 +6,7 @@
 - [ ] **输入**：PHPickerViewController 原生插件，`.livePhotos` 过滤器读取 Live Photo 动态部分（无需相册权限，工程量约 1-2 天）
 - [ ] **输出**：导出 Live Photo——用相册框架写入配对资产（`PHAssetCreationRequest` 同时写入封面帧照片资源 + 配对视频资源，两者带相同 Content Identifier）。封面帧取导出视频第一帧，工程量约 1-2 天
 - [ ] 导出按钮按平台自动切换：网页端出 MP4，iOS App 出 Live Photo
+- [ ] **社媒直发深链**：`instagram-stories://` 直跳 IG Story 编辑器并带入导出图（对标 Unfold/Canva 的平台专属分享按钮）；可评估接入小红书原生分享 SDK。背景：系统分享面板有没有某个 App 取决于对方是否注册分享扩展——小红书有、Instagram 没有，所以网页端只能走「存储图像→IG 发帖」两步，直发必须原生
 - 背景：网页端无法创建 Live Photo（Apple 配对元数据 + 相册写入权限不开放给浏览器），当前网页用户可用 intoLive 等 App 手动转换
 
 ### 社媒分享升级（原生 SDK，对标 Unfold/Canva）
